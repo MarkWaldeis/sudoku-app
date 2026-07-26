@@ -194,6 +194,8 @@ const MainAppContent: React.FC = () => {
             </button>
           </motion.div>
         </div>
+      )}
+
       {/* Bottom Navigation */}
       <BottomNav
         currentTab={view === 'game' ? 'game' : 'campaign'}
