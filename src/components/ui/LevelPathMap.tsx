@@ -5,13 +5,16 @@ import { playPop, playErrorBuzz } from '../../utils/soundEffects';
 interface LevelPathMapProps {
   currentLevel: number;
   maxLevel?: number;
+  onLevelSelect?: (level: number) => void;
 }
 
-export const LevelPathMap: React.FC<LevelPathMapProps> = ({ currentLevel, maxLevel = 20 }) => {
+export const LevelPathMap: React.FC<LevelPathMapProps> = ({ currentLevel, maxLevel = 20, onLevelSelect }) => {
   const handleLevelClick = (level: number) => {
     if (level <= currentLevel) {
       playPop();
-      // Handle level selection
+      if (onLevelSelect) {
+        onLevelSelect(level);
+      }
     } else {
       playErrorBuzz();
     }

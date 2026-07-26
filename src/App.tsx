@@ -5,6 +5,7 @@ import { HeaderStats } from './components/ui/HeaderStats';
 import { LevelPathMap } from './components/ui/LevelPathMap';
 import { MascotAssistant } from './components/ui/MascotAssistant';
 import { playPop, playVictoryFanfare, playErrorBuzz } from './utils/soundEffects';
+import { campaignLevels } from './logic/campaignLevels';
 import './styles/duolingo.css';
 import confetti from 'canvas-confetti';
 import { motion } from 'framer-motion';
@@ -92,7 +93,18 @@ const MainAppContent: React.FC = () => {
           <h2 style={{ marginTop: '20px', fontWeight: 900, color: 'var(--duo-text-dark)' }}>
             Deine Sudoku-Reise
           </h2>
-          <LevelPathMap currentLevel={profile.unlockedLevels.length} />
+          <LevelPathMap 
+            currentLevel={profile.unlockedLevels.length} 
+            onLevelSelect={(level) => {
+              const levelData = campaignLevels.find(l => l.id === level);
+              if (levelData) {
+                handleStartLevel(levelData.difficulty as 'easy' | 'medium' | 'hard');
+                setMascotMessage(`Starte Level ${level}: ${levelData.description}`);
+              } else {
+                handleStartLevel('easy');
+              }
+            }}
+          />
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '20px' }}>
