@@ -9,6 +9,7 @@ import { campaignLevels } from './logic/campaignLevels';
 import { BottomNav } from './components/ui/BottomNav';
 import { StatsModal } from './components/ui/StatsModal';
 import { LeaderboardModal } from './components/ui/LeaderboardModal';
+import { ShopModal } from './components/ui/ShopModal';
 import './styles/duolingo.css';
 import confetti from 'canvas-confetti';
 import { motion } from 'framer-motion';
@@ -20,8 +21,26 @@ const MainAppContent: React.FC = () => {
   const [showVictoryModal, setShowVictoryModal] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
+  const [isShopOpen, setIsShopOpen] = useState(false);
   const [playingLevel, setPlayingLevel] = useState<number | null>(null);
   const [playingDifficulty, setPlayingDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
+  
+  // Timer state
+  const [timerSeconds, setTimerSeconds] = useState<number>(0);
+  const [victoryStats, setVictoryStats] = useState<{ xpGained: number; gemsGained: number; speedBonusGems: number } | null>(null);
+
+  // Timer interval
+  useEffect(() => {
+    let interval: any = null;
+    if (view === 'game' && state && !state.isGameOver && !showVictoryModal) {
+      interval = setInterval(() => {
+        setTimerSeconds(prev => prev + 1);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [view, state?.isGameOver, showVictoryModal, state]);
 
   useEffect(() => {
     if (state?.isGameOver) {
@@ -34,6 +53,7 @@ const MainAppContent: React.FC = () => {
     playPop();
     setPlayingDifficulty(difficulty);
     setPlayingLevel(levelId);
+    setTimerSeconds(0);
     startNewGame(difficulty);
     setView('game');
     setMascotMessage("Konzentriere dich! Finde alle fehlenden Zahlen.");
@@ -47,11 +67,13 @@ const MainAppContent: React.FC = () => {
         spread: 80,
         origin: { y: 0.6 }
       });
-      if (playingLevel) {
-        completeLevel(playingLevel);
-      }
+      
+      const stats = completeLevel(playingLevel || 1, timerSeconds);
+      setVictoryStats(stats);
       setShowVictoryModal(true);
-      setMascotMessage("Großartig gemacht! Du hast das Level gemeistert! 🎉");
+      setMascotMessage(stats.speedBonusGems > 0 
+        ? "Unglaublich schnell gelöst! Du hast den Zeit-Bonus eingestreift! ⚡💎" 
+        : "Großartig gemacht! Du hast das Level gemeistert! 🎉");
     } else {
       playErrorBuzz();
       setMascotMessage("Da sind noch Fehler oder unvollständige Felder. Gib nicht auf!");
@@ -72,7 +94,10 @@ const MainAppContent: React.FC = () => {
         streak={profile.streak} 
         lives={state?.lives ?? 3} 
         xp={profile.xp} 
+        gems={profile.gems}
+        timerSeconds={view === 'game' ? timerSeconds : undefined}
         level={view === 'game' && playingLevel ? playingLevel : profile.unlockedLevels.length} 
+        onOpenShop={() => { playPop(); setIsShopOpen(true); }}
       />
 
       {/* Navigation Bar */}
@@ -98,6 +123,12 @@ const MainAppContent: React.FC = () => {
           }}
         >
           ⚡ Schnelles Spiel
+        </button>
+        <button 
+          className="btn-duo btn-duo-yellow"
+          onClick={() => { playPop(); setIsShopOpen(true); }}
+        >
+          🛒 Shop
         </button>
       </div>
 
@@ -153,20 +184,32 @@ const MainAppContent: React.FC = () => {
             }}
           >
             <h2 style={{ fontSize: '2rem', color: 'var(--duo-red)', marginBottom: '16px' }}>💔 Keine Leben mehr!</h2>
-            <p style={{ color: 'var(--duo-text-light)', marginBottom: '24px' }}>Du hast alle 3 Herzen verloren. Keine Sorge, Übung macht den Meister!</p>
-            <button 
-              className="btn-duo btn-duo-green"
-              onClick={() => handleStartLevel(playingDifficulty, playingLevel)}
-              style={{ width: '100%' }}
-            >
-              Erneut versuchen
-            </button>
+            <p style={{ color: 'var(--duo-text-light)', marginBottom: '16px' }}>Du hast alle 3 Herzen verloren.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button 
+                className="btn-duo btn-duo-yellow"
+                onClick={() => {
+                  playPop();
+                  setIsShopOpen(true);
+                }}
+                style={{ width: '100%' }}
+              >
+                ❤️ Im Shop auffüllen
+              </button>
+              <button 
+                className="btn-duo btn-duo-gray"
+                onClick={() => handleStartLevel(playingDifficulty, playingLevel)}
+                style={{ width: '100%' }}
+              >
+                Erneut versuchen
+              </button>
+            </div>
           </motion.div>
         </div>
       )}
 
       {/* Victory Modal */}
-      {showVictoryModal && (
+      {showVictoryModal && victoryStats && (
         <div style={{
           position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000
@@ -181,7 +224,21 @@ const MainAppContent: React.FC = () => {
             }}
           >
             <h2 style={{ fontSize: '2.2rem', color: 'var(--duo-green)', marginBottom: '8px' }}>🎉 Level Geschafft!</h2>
-            <p style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--duo-yellow)', marginBottom: '16px' }}>+100 XP GEWONNEN!</p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', margin: '16px 0', backgroundColor: 'var(--duo-bg-light)', padding: '16px', borderRadius: '16px' }}>
+              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--duo-blue)' }}>
+                + {victoryStats.xpGained} XP
+              </div>
+              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#d48800' }}>
+                + {victoryStats.gemsGained} 💎 Edelsteine
+              </div>
+              {victoryStats.speedBonusGems > 0 && (
+                <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--duo-green)', backgroundColor: '#eefbdf', padding: '6px', borderRadius: '10px' }}>
+                  ⏱️ ZEIT-BONUS: +{victoryStats.speedBonusGems} 💎!
+                </div>
+              )}
+            </div>
+
             <button 
               className="btn-duo btn-duo-green"
               onClick={() => {
@@ -199,31 +256,32 @@ const MainAppContent: React.FC = () => {
 
       {/* Bottom Navigation */}
       <BottomNav
-        currentTab={view === 'game' ? 'game' : 'campaign'}
+        currentTab={isShopOpen ? 'shop' : view === 'game' ? 'game' : 'campaign'}
         onSelectTab={(tab) => {
           if (tab === 'campaign') {
+            setIsShopOpen(false);
             setView('campaign');
           } else if (tab === 'game') {
+            setIsShopOpen(false);
             if (view !== 'game') {
               handleStartLevel('easy', null);
             }
+          } else if (tab === 'shop') {
+            setIsShopOpen(true);
           } else if (tab === 'stats') {
+            setIsShopOpen(false);
             setShowStatsModal(true);
           } else if (tab === 'leaderboard') {
+            setIsShopOpen(false);
             setShowLeaderboardModal(true);
           }
         }}
       />
 
-      {/* Stats Modal */}
-      {showStatsModal && (
-        <StatsModal onClose={() => setShowStatsModal(false)} />
-      )}
-
-      {/* Leaderboard Modal */}
-      {showLeaderboardModal && (
-        <LeaderboardModal onClose={() => setShowLeaderboardModal(false)} />
-      )}
+      {/* Modals */}
+      <ShopModal isOpen={isShopOpen} onClose={() => setIsShopOpen(false)} />
+      {showStatsModal && <StatsModal onClose={() => setShowStatsModal(false)} />}
+      {showLeaderboardModal && <LeaderboardModal onClose={() => setShowLeaderboardModal(false)} />}
     </div>
   );
 };

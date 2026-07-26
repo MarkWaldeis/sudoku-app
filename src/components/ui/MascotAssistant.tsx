@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import '../../styles/duolingo.css';
 import { playPop } from '../../utils/soundEffects';
+import { useGame } from '../../store/GameContext';
 
 interface MascotAssistantProps {
   message?: string;
@@ -11,6 +12,15 @@ export const MascotAssistant: React.FC<MascotAssistantProps> = ({
   message = "Du schaffst das! Finde die fehlenden Zahlen." 
 }) => {
   const [isVisible, setIsVisible] = useState(true);
+  const { profile } = useGame();
+
+  const skinImages: Record<string, string> = {
+    default: '/mascot.jpg',
+    fox: '/mascot_fox.jpg',
+    king: '/mascot_king.jpg',
+    ninja: '/mascot_ninja.jpg',
+  };
+  const mascotSrc = skinImages[profile.selectedMascotSkin] || '/mascot.jpg';
 
   return (
     <div style={{
@@ -49,7 +59,7 @@ export const MascotAssistant: React.FC<MascotAssistantProps> = ({
         }}
       >
         <img 
-          src="/mascot.jpg" 
+          src={mascotSrc} 
           alt="Sudoku Mascot" 
           style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
         />

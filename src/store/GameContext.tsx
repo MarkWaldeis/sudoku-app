@@ -16,6 +16,8 @@ interface GameState {
   isGameOver: boolean;
   comboCount: number;
   lastMoveTime: number | null;
+  startTime: number;
+  hintedCell: { r: number; c: number } | null;
 }
 
 interface GameContextProps {
@@ -27,7 +29,11 @@ interface GameContextProps {
   redo: () => void;
   checkSolution: () => boolean;
   profile: UserProfile;
-  completeLevel: (levelId: number) => void;
+  completeLevel: (levelId: number, elapsedTimeSeconds?: number) => { xpGained: number; gemsGained: number; speedBonusGems: number };
+  useHint: (selectedCell?: { r: number; c: number } | null) => boolean;
+  buyShopItem: (itemId: string, cost: number) => boolean;
+  selectSkin: (skinId: 'default' | 'fox' | 'king' | 'ninja') => void;
+  refillHearts: () => void;
 }
 
 const GameContext = createContext<GameContextProps | undefined>(undefined);
@@ -84,6 +90,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       isGameOver: false,
       comboCount: 0,
       lastMoveTime: null,
+      startTime: Date.now(),
+      hintedCell: null
     };
     setState(newState);
     setProfile(p => ({
@@ -109,9 +117,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const makeMove = (row: number, col: number, val: number | null): boolean | null => {
     if (!state || state.initialBoard[row][col] !== null || state.isGameOver) return null;
-    if (state.board[row][col] === val) return null; // Same value, ignore to prevent double penalty
+    if (state.board[row][col] === val) return null;
 
-    // Check correctness if val is not null
     let isCorrect = true;
     if (val !== null) {
       const realSolution = deobfuscateSolution(state.obfuscatedSolution);
@@ -136,25 +143,24 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (val !== null) {
         if (!isCorrect) {
           newLives -= 1;
-          newComboCount = 0; // Reset combo
+          newComboCount = 0;
           if (newLives <= 0) {
             newIsGameOver = true;
           }
           setProfile(p => ({ ...p, incorrectMoves: (p.incorrectMoves || 0) + 1 }));
         } else {
-          // Correct move
           const timeSinceLast = prev.lastMoveTime ? newLastMoveTime - prev.lastMoveTime : 10000;
-          if (timeSinceLast < 5000) { // 5 seconds for combo
+          if (timeSinceLast < 5000) {
             newComboCount += 1;
           } else {
             newComboCount = 1;
           }
           
-          // Add XP & stats
-          const xpGained = 10 + (newComboCount > 1 ? 5 : 0); // Bonus for combo
+          const xpGained = 10 + (newComboCount > 1 ? 5 : 0);
           setProfile(p => ({ 
             ...p, 
             xp: p.xp + xpGained,
+            gems: p.gems + 1, // 1 gem per correct move
             correctMoves: (p.correctMoves || 0) + 1
           }));
         }
@@ -174,6 +180,117 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     if (val === null) return null;
     return isCorrect;
+  };
+
+  const useHint = (selectedCell?: { r: number; c: number } | null): boolean => {
+    if (!state || state.isGameOver) return false;
+
+    // Check if player has hints or gems
+    const hasFreeHint = profile.hints > 0;
+    const hasGems = profile.gems >= 20;
+
+    if (!hasFreeHint && !hasGems) return false;
+
+    const realSolution = deobfuscateSolution(state.obfuscatedSolution);
+
+    // Find target cell
+    let targetR = -1;
+    let targetC = -1;
+
+    if (selectedCell && state.initialBoard[selectedCell.r][selectedCell.c] === null) {
+      if (state.board[selectedCell.r][selectedCell.c] !== realSolution[selectedCell.r][selectedCell.c]) {
+        targetR = selectedCell.r;
+        targetC = selectedCell.c;
+      }
+    }
+
+    if (targetR === -1) {
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          if (state.initialBoard[r][c] === null && state.board[r][c] !== realSolution[r][c]) {
+            targetR = r;
+            targetC = c;
+            break;
+          }
+        }
+        if (targetR !== -1) break;
+      }
+    }
+
+    if (targetR === -1) return false; // Board is full/solved
+
+    const correctValue = realSolution[targetR][targetC]!;
+    const newBoard = state.board.map(r => [...r]);
+    newBoard[targetR][targetC] = correctValue;
+
+    // Consume hint or gems
+    setProfile(p => ({
+      ...p,
+      hints: hasFreeHint ? p.hints - 1 : p.hints,
+      gems: !hasFreeHint ? p.gems - 20 : p.gems
+    }));
+
+    setState(prev => {
+      if (!prev) return prev;
+      const newHistory = prev.history.slice(0, prev.historyIndex + 1);
+      newHistory.push({ board: newBoard, pencilMarks: prev.pencilMarks });
+      return {
+        ...prev,
+        board: newBoard,
+        history: newHistory,
+        historyIndex: newHistory.length - 1,
+        hintedCell: { r: targetR, c: targetC }
+      };
+    });
+
+    // Clear hint animation highlight after 2.5s
+    setTimeout(() => {
+      setState(prev => prev ? ({ ...prev, hintedCell: null }) : null);
+    }, 2500);
+
+    return true;
+  };
+
+  const buyShopItem = (itemId: string, cost: number): boolean => {
+    if (profile.gems < cost) return false;
+
+    setProfile(p => {
+      let newHints = p.hints;
+      let newStreakFreeze = p.streakFreeze;
+      let newUnlockedSkins = [...p.unlockedSkins];
+
+      if (itemId === 'hints') {
+        newHints += 3;
+      } else if (itemId === 'streakFreeze') {
+        newStreakFreeze += 1;
+      } else if (itemId.startsWith('skin_')) {
+        const skinId = itemId.replace('skin_', '');
+        if (!newUnlockedSkins.includes(skinId)) {
+          newUnlockedSkins.push(skinId);
+        }
+      }
+
+      return {
+        ...p,
+        gems: p.gems - cost,
+        hints: newHints,
+        streakFreeze: newStreakFreeze,
+        unlockedSkins: newUnlockedSkins
+      };
+    });
+
+    return true;
+  };
+
+  const selectSkin = (skinId: 'default' | 'fox' | 'king' | 'ninja') => {
+    setProfile(p => ({
+      ...p,
+      selectedMascotSkin: skinId
+    }));
+  };
+
+  const refillHearts = () => {
+    setState(prev => prev ? ({ ...prev, lives: 3, isGameOver: false }) : null);
   };
 
   const togglePencilMark = (row: number, col: number, val: number) => {
@@ -231,17 +348,37 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return true;
   };
 
-  const completeLevel = (levelId: number) => {
+  const completeLevel = (levelId: number, elapsedTimeSeconds: number = 0) => {
+    const levelConfig = campaignLevels.find(l => l.id === levelId);
+    const baseXp = levelConfig ? levelConfig.xpReward : 100;
+    const baseGems = 25;
+
+    // Speed bonus calculation
+    let speedBonusGems = 0;
+    let speedBonusXp = 0;
+    const difficulty = levelConfig?.difficulty || 'easy';
+
+    if (elapsedTimeSeconds > 0) {
+      if (difficulty === 'easy' && elapsedTimeSeconds <= 180) { // < 3 mins
+        speedBonusGems = 50;
+        speedBonusXp = 50;
+      } else if (difficulty === 'medium' && elapsedTimeSeconds <= 300) { // < 5 mins
+        speedBonusGems = 100;
+        speedBonusXp = 100;
+      } else if (difficulty === 'hard' && elapsedTimeSeconds <= 480) { // < 8 mins
+        speedBonusGems = 200;
+        speedBonusXp = 250;
+      }
+    }
+
+    const totalXp = baseXp + speedBonusXp;
+    const totalGems = baseGems + speedBonusGems;
+
     setProfile(p => {
       const newUnlocked = p.unlockedLevels.includes(levelId + 1) 
         ? p.unlockedLevels 
         : [...p.unlockedLevels, levelId + 1];
 
-      // Dynamic level XP reward
-      const levelConfig = campaignLevels.find(l => l.id === levelId);
-      const reward = levelConfig ? levelConfig.xpReward : 100;
-
-      // Streak logic on win
       const today = new Date().toDateString();
       let newStreak = p.streak;
       if (p.lastPlayedDate !== today) {
@@ -256,12 +393,15 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       return {
         ...p,
-        xp: p.xp + reward,
+        xp: p.xp + totalXp,
+        gems: p.gems + totalGems,
         unlockedLevels: newUnlocked,
         streak: newStreak,
         lastPlayedDate: today
       };
     });
+
+    return { xpGained: totalXp, gemsGained: totalGems, speedBonusGems };
   };
 
   const contextValue = useMemo(() => ({
@@ -273,7 +413,11 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     redo,
     checkSolution,
     profile,
-    completeLevel
+    completeLevel,
+    useHint,
+    buyShopItem,
+    selectSkin,
+    refillHearts
   }), [state, profile]);
 
   return (

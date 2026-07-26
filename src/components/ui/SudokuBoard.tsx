@@ -5,7 +5,7 @@ import { playPop, playSuccessChime, playErrorBuzz } from '../../utils/soundEffec
 import '../../styles/duolingo.css';
 
 export const SudokuBoard: React.FC = () => {
-  const { state, makeMove, togglePencilMark } = useGame();
+  const { state, makeMove, togglePencilMark, useHint, profile } = useGame();
   const [selectedCell, setSelectedCell] = useState<{r: number, c: number} | null>(null);
   const [isNotesMode, setIsNotesMode] = useState(false);
 
@@ -44,11 +44,15 @@ export const SudokuBoard: React.FC = () => {
       } else if (e.key === 'n' || e.key === 'N') {
         playPop();
         setIsNotesMode(prev => !prev);
+      } else if (e.key === 'h' || e.key === 'H') {
+        if (useHint(selectedCell)) {
+          playSuccessChime();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state, selectedCell, isNotesMode, makeMove, handleNumberInput]);
+  }, [state, selectedCell, isNotesMode, makeMove, handleNumberInput, useHint]);
 
   if (!state) return null;
 
@@ -112,6 +116,7 @@ export const SudokuBoard: React.FC = () => {
               const isRelated = selectedCell && (selectedCell.r === rowIndex || selectedCell.c === colIndex);
               const isInitial = state.initialBoard[rowIndex][colIndex] !== null;
               const isWrong = !isInitial && val !== null && realSolution && val !== realSolution[rowIndex][colIndex];
+              const isHinted = state.hintedCell?.r === rowIndex && state.hintedCell?.c === colIndex;
               
               const pencilMarks = state.pencilMarks[`${rowIndex}-${colIndex}`] || [];
 
@@ -122,14 +127,17 @@ export const SudokuBoard: React.FC = () => {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.95 }}
                   animate={{ 
-                    backgroundColor: isSelected 
-                      ? 'var(--duo-blue)' 
-                      : isWrong
-                        ? '#ffe5e5'
-                        : isRelated 
-                          ? '#e5f6ff' 
-                          : 'white',
-                    color: isSelected ? 'white' : isWrong ? 'var(--duo-red)' : isInitial ? 'var(--duo-text-dark)' : 'var(--duo-green)'
+                    backgroundColor: isHinted
+                      ? '#fff4cc'
+                      : isSelected 
+                        ? 'var(--duo-blue)' 
+                        : isWrong
+                          ? '#ffe5e5'
+                          : isRelated 
+                            ? '#e5f6ff' 
+                            : 'white',
+                    color: isSelected ? 'white' : isWrong ? 'var(--duo-red)' : isInitial ? 'var(--duo-text-dark)' : 'var(--duo-green)',
+                    boxShadow: isHinted ? 'inset 0 0 12px #ffc800' : 'none'
                   }}
                   style={{
                     width: 'clamp(32px, 8.5vw, 52px)',
@@ -201,14 +209,32 @@ export const SudokuBoard: React.FC = () => {
         </button>
         <button 
           onClick={() => {
+            if (useHint(selectedCell)) {
+              playSuccessChime();
+            } else {
+              playErrorBuzz();
+            }
+          }}
+          className="btn-duo btn-duo-yellow"
+          style={{
+            height: '48px',
+            padding: '0 14px',
+            fontSize: '0.95rem',
+            fontWeight: 800
+          }}
+        >
+          💡 Tipp ({profile.hints > 0 ? profile.hints : '💎20'})
+        </button>
+        <button 
+          onClick={() => {
             playPop();
             setIsNotesMode(!isNotesMode);
           }}
-          className={`btn-duo ${isNotesMode ? 'btn-duo-green' : 'btn-duo-gray'}`}
+          className={`btn-duo ${isNotesMode ? 'btn-duo-purple' : 'btn-duo-gray'}`}
           style={{
             height: '48px',
-            padding: '0 18px',
-            fontSize: '1rem',
+            padding: '0 14px',
+            fontSize: '0.95rem',
             fontWeight: 800
           }}
         >

@@ -3,14 +3,15 @@ import { playPop } from '../../utils/soundEffects';
 import '../../styles/duolingo.css';
 
 interface BottomNavProps {
-  currentTab: 'campaign' | 'game' | 'stats' | 'leaderboard';
-  onSelectTab: (tab: 'campaign' | 'game' | 'stats' | 'leaderboard') => void;
+  currentTab: 'campaign' | 'game' | 'stats' | 'leaderboard' | 'shop';
+  onSelectTab: (tab: 'campaign' | 'game' | 'stats' | 'leaderboard' | 'shop') => void;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onSelectTab }) => {
   const tabs = [
     { id: 'campaign', label: 'Pfad', icon: '🗺️' },
     { id: 'game', label: 'Spiel', icon: '⚡' },
+    { id: 'shop', label: 'Shop', icon: '🛒' },
     { id: 'stats', label: 'Stats', icon: '📊' },
     { id: 'leaderboard', label: 'Liga', icon: '🏆' }
   ] as const;
