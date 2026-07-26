@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { generateSudoku, type Board, type Difficulty } from '../logic/sudokuGenerator';
-import { saveGame, loadGame } from './storage';
+import { saveGame, loadGame, loadProfile, saveProfile, type UserProfile, defaultProfile } from './storage';
 
 type PencilMarks = { [key: string]: number[] };
 
@@ -11,6 +11,10 @@ interface GameState {
   history: { board: Board; pencilMarks: PencilMarks }[];
   historyIndex: number;
   obfuscatedSolution: string[]; // Anti-cheat: solution row by row obfuscated
+  lives: number;
+  isGameOver: boolean;
+  comboCount: number;
+  lastMoveTime: number | null;
 }
 
 interface GameContextProps {
@@ -21,6 +25,8 @@ interface GameContextProps {
   undo: () => void;
   redo: () => void;
   checkSolution: () => boolean;
+  profile: UserProfile;
+  completeLevel: (levelId: number) => void;
 }
 
 const GameContext = createContext<GameContextProps | undefined>(undefined);
@@ -40,11 +46,38 @@ const deobfuscateSolution = (obfuscated: string[]): Board => {
 
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, setState] = useState<GameState | null>(null);
+  const [profile, setProfile] = useState<UserProfile>(defaultProfile);
 
   useEffect(() => {
     loadGame().then(saved => {
       if (saved) {
         setState(saved as GameState);
+      }
+    });
+    
+    loadProfile().then(savedProfile => {
+      // Check and update streak based on date
+      const today = new Date().toDateString();
+      if (savedProfile.lastPlayedDate !== today) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        let newStreak = savedProfile.streak;
+        if (savedProfile.lastPlayedDate === yesterday.toDateString()) {
+          newStreak += 1; // Continued streak
+        } else if (savedProfile.lastPlayedDate !== null) {
+          newStreak = 1; // Streak broken, reset to 1 on first play today (or 0 and update on play)
+        } else {
+          newStreak = 1; // First time playing
+        }
+        
+        setProfile({
+          ...savedProfile,
+          streak: newStreak,
+          lastPlayedDate: today
+        });
+      } else {
+        setProfile(savedProfile);
       }
     });
   }, []);
@@ -55,6 +88,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [state]);
 
+  useEffect(() => {
+    saveProfile(profile);
+  }, [profile]);
+
   const startNewGame = (difficulty: Difficulty) => {
     const { puzzle, solution } = generateSudoku(difficulty);
     const newState: GameState = {
@@ -64,6 +101,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       history: [{ board: puzzle, pencilMarks: {} }],
       historyIndex: 0,
       obfuscatedSolution: obfuscateSolution(solution),
+      lives: 3,
+      isGameOver: false,
+      comboCount: 0,
+      lastMoveTime: null,
     };
     setState(newState);
   };
@@ -84,10 +125,63 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const makeMove = (row: number, col: number, val: number | null) => {
-    if (!state || state.initialBoard[row][col] !== null) return; // Prevent overwriting initial puzzle clues
+    if (!state || state.initialBoard[row][col] !== null || state.isGameOver) return; // Prevent overwriting initial puzzle clues or playing after game over
+
+    // Check correctness if val is not null
+    let isCorrect = true;
+    if (val !== null) {
+      const realSolution = deobfuscateSolution(state.obfuscatedSolution);
+      if (val !== realSolution[row][col]) {
+        isCorrect = false;
+      }
+    }
+
     const newBoard = state.board.map(r => [...r]);
     newBoard[row][col] = val;
-    updateStateAndHistory(newBoard, state.pencilMarks);
+
+    setState(prev => {
+      if (!prev) return prev;
+      const newHistory = prev.history.slice(0, prev.historyIndex + 1);
+      newHistory.push({ board: newBoard, pencilMarks: prev.pencilMarks });
+      
+      let newLives = prev.lives;
+      let newIsGameOver = prev.isGameOver;
+      let newComboCount = prev.comboCount;
+      let newLastMoveTime = Date.now();
+
+      if (val !== null) {
+        if (!isCorrect) {
+          newLives -= 1;
+          newComboCount = 0; // Reset combo
+          if (newLives <= 0) {
+            newIsGameOver = true;
+          }
+        } else {
+          // Correct move
+          const timeSinceLast = prev.lastMoveTime ? newLastMoveTime - prev.lastMoveTime : 10000;
+          if (timeSinceLast < 5000) { // 5 seconds for combo
+            newComboCount += 1;
+          } else {
+            newComboCount = 1;
+          }
+          
+          // Add XP
+          const xpGained = 10 + (newComboCount > 1 ? 5 : 0); // Bonus for combo
+          setProfile(p => ({ ...p, xp: p.xp + xpGained }));
+        }
+      }
+
+      return {
+        ...prev,
+        board: newBoard,
+        history: newHistory,
+        historyIndex: newHistory.length - 1,
+        lives: newLives,
+        isGameOver: newIsGameOver,
+        comboCount: newComboCount,
+        lastMoveTime: newLastMoveTime
+      };
+    });
   };
 
   const togglePencilMark = (row: number, col: number, val: number) => {
@@ -145,8 +239,21 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return true;
   };
 
+  const completeLevel = (levelId: number) => {
+    setProfile(p => {
+      const newUnlocked = p.unlockedLevels.includes(levelId + 1) 
+        ? p.unlockedLevels 
+        : [...p.unlockedLevels, levelId + 1];
+      return {
+        ...p,
+        xp: p.xp + 100, // +100 XP pro absolviertem Level
+        unlockedLevels: newUnlocked
+      };
+    });
+  };
+
   return (
-    <GameContext.Provider value={{ state: state!, startNewGame, makeMove, togglePencilMark, undo, redo, checkSolution }}>
+    <GameContext.Provider value={{ state: state!, startNewGame, makeMove, togglePencilMark, undo, redo, checkSolution, profile, completeLevel }}>
       {children}
     </GameContext.Provider>
   );

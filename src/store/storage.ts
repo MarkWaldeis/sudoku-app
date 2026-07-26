@@ -29,3 +29,35 @@ export const clearGame = async () => {
     console.error('Error clearing game:', err);
   }
 };
+
+export interface UserProfile {
+  xp: number;
+  streak: number;
+  lastPlayedDate: string | null;
+  unlockedLevels: number[];
+}
+
+export const defaultProfile: UserProfile = {
+  xp: 0,
+  streak: 0,
+  lastPlayedDate: null,
+  unlockedLevels: [1],
+};
+
+export const saveProfile = async (profile: UserProfile) => {
+  try {
+    await storage.setItem('user_profile', profile);
+  } catch (err) {
+    console.error('Error saving profile:', err);
+  }
+};
+
+export const loadProfile = async (): Promise<UserProfile> => {
+  try {
+    const data = await storage.getItem('user_profile');
+    return (data as UserProfile) || defaultProfile;
+  } catch (err) {
+    console.error('Error loading profile:', err);
+    return defaultProfile;
+  }
+};

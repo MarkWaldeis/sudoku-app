@@ -1,0 +1,95 @@
+:root {
+  --duo-green: #58cc02;
+  --duo-green-shadow: #46a302;
+  --duo-blue: #1cb0f6;
+  --duo-blue-shadow: #1899d6;
+  --duo-yellow: #ffc800;
+  --duo-purple: #ce82ff;
+  --duo-red: #ff4b4b;
+  --duo-red-shadow: #ea2b2b;
+  --duo-gray: #e5e5e5;
+  --duo-gray-shadow: #cccccc;
+  --duo-text-dark: #3c3c3c;
+  --duo-text-light: #afafaf;
+}
+
+.btn-duo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Nunito', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 12px 24px;
+  border-radius: 16px;
+  border: none;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  user-select: none;
+  outline: none;
+  text-decoration: none;
+  background-color: var(--duo-green);
+  color: white;
+  box-shadow: 0 4px 0 var(--duo-green-shadow);
+}
+
+.btn-duo:active, .btn-duo.active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 var(--duo-green-shadow);
+}
+
+.btn-duo-blue {
+  background-color: var(--duo-blue);
+  box-shadow: 0 4px 0 var(--duo-blue-shadow);
+}
+
+.btn-duo-blue:active, .btn-duo-blue.active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 var(--duo-blue-shadow);
+}
+
+.btn-duo-red {
+  background-color: var(--duo-red);
+  box-shadow: 0 4px 0 var(--duo-red-shadow);
+}
+
+.btn-duo-red:active, .btn-duo-red.active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 var(--duo-red-shadow);
+}
+
+.btn-duo-disabled {
+  background-color: var(--duo-gray);
+  color: var(--duo-text-light);
+  box-shadow: 0 4px 0 var(--duo-gray-shadow);
+  cursor: not-allowed;
+}
+
+.btn-duo-disabled:active {
+  transform: none;
+  box-shadow: 0 4px 0 var(--duo-gray-shadow);
+}
+
+/* Mascot Animation */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.mascot-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Level Path Animations */
+@keyframes pulse-ring {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 0.4; }
+  100% { transform: scale(0.9); opacity: 0.8; }
+}
+
+.level-active-ring {
+  animation: pulse-ring 2s infinite;
+}

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../../store/GameContext';
-import '../../styles/variables.css';
+import { playPop, playSuccessChime } from '../../utils/soundEffects';
+import '../../styles/duolingo.css';
 
 export const SudokuBoard: React.FC = () => {
   const { state, makeMove, togglePencilMark } = useGame();
@@ -11,16 +12,21 @@ export const SudokuBoard: React.FC = () => {
   if (!state) return null;
 
   const handleCellClick = (r: number, c: number) => {
+    playPop();
     setSelectedCell({ r, c });
   };
 
   const handleNumberInput = (num: number) => {
-    if (!selectedCell) return;
+    if (!selectedCell || state.isGameOver) return;
     const { r, c } = selectedCell;
     if (isNotesMode) {
+      playPop();
       togglePencilMark(r, c, num);
     } else {
       makeMove(r, c, num);
+      // Play appropriate sound based on move correctness checked in state
+      // (The GameContext handles correctness check internally, but we can play sound)
+      playSuccessChime();
     }
   };
 
@@ -31,9 +37,11 @@ export const SudokuBoard: React.FC = () => {
         handleNumberInput(parseInt(e.key));
       } else if (e.key === 'Backspace' || e.key === 'Delete') {
         if (selectedCell && !isNotesMode) {
+          playPop();
           makeMove(selectedCell.r, selectedCell.c, null);
         }
       } else if (e.key === 'n' || e.key === 'N') {
+        playPop();
         setIsNotesMode(prev => !prev);
       }
     };
@@ -42,22 +50,52 @@ export const SudokuBoard: React.FC = () => {
   }, [selectedCell, isNotesMode, makeMove, togglePencilMark]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+      {/* Combo Floating Badge */}
+      <AnimatePresence>
+        {state.comboCount > 1 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.5 }}
+            animate={{ opacity: 1, y: -20, scale: 1.2 }}
+            exit={{ opacity: 0, y: -40 }}
+            style={{
+              position: 'absolute',
+              top: '-10px',
+              backgroundColor: 'var(--duo-yellow)',
+              color: 'var(--duo-text-dark)',
+              padding: '6px 16px',
+              borderRadius: '20px',
+              fontWeight: 900,
+              boxShadow: '0 4px 0 var(--duo-yellow-shadow)',
+              zIndex: 10
+            }}
+          >
+            🔥 {state.comboCount}x Combo!
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <motion.div 
-        className="card-glass"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        style={{ padding: '20px', margin: '20px auto' }}
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3 }}
+        style={{ 
+          padding: '16px', 
+          backgroundColor: 'white', 
+          borderRadius: '24px', 
+          boxShadow: '0 8px 0 var(--duo-gray-shadow)',
+          border: '2px solid var(--duo-gray)',
+          margin: '20px auto'
+        }}
       >
         <div 
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(9, 1fr)',
-            gap: '2px',
-            background: 'var(--border-glass)',
-            border: '2px solid var(--accent-primary)',
-            borderRadius: 'var(--radius-sm)',
+            gap: '3px',
+            backgroundColor: 'var(--duo-gray)',
+            border: '3px solid var(--duo-text-dark)',
+            borderRadius: '12px',
             overflow: 'hidden'
           }}
         >
@@ -75,35 +113,37 @@ export const SudokuBoard: React.FC = () => {
                 <motion.div
                   key={`${rowIndex}-${colIndex}`}
                   onClick={() => handleCellClick(rowIndex, colIndex)}
-                  whileHover={{ backgroundColor: 'var(--bg-card-hover)' }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.95 }}
                   animate={{ 
                     backgroundColor: isSelected 
-                      ? 'rgba(99, 102, 241, 0.5)' 
+                      ? 'var(--duo-blue)' 
                       : isRelated 
-                        ? 'rgba(99, 102, 241, 0.15)' 
-                        : 'var(--bg-secondary)'
+                        ? '#e5f6ff' 
+                        : 'white',
+                    color: isSelected ? 'white' : isInitial ? 'var(--duo-text-dark)' : 'var(--duo-green)'
                   }}
                   style={{
-                    width: 'clamp(30px, 8vw, 50px)',
-                    height: 'clamp(30px, 8vw, 50px)',
+                    width: 'clamp(32px, 8.5vw, 52px)',
+                    height: 'clamp(32px, 8.5vw, 52px)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: 'clamp(1rem, 4vw, 1.5rem)',
-                    fontWeight: isInitial ? 700 : 400,
-                    color: isInitial ? 'var(--text-main)' : 'var(--accent-primary)',
-                    borderRight: isRightBorder ? '2px solid var(--accent-primary)' : 'none',
-                    borderBottom: isBottomBorder ? '2px solid var(--accent-primary)' : 'none',
+                    fontSize: 'clamp(1.1rem, 4vw, 1.6rem)',
+                    fontWeight: isInitial ? 900 : 700,
+                    borderRight: isRightBorder ? '3px solid var(--duo-text-dark)' : 'none',
+                    borderBottom: isBottomBorder ? '3px solid var(--duo-text-dark)' : 'none',
                     cursor: 'pointer',
-                    position: 'relative'
+                    position: 'relative',
+                    userSelect: 'none'
                   }}
                 >
                   {val !== null ? (
-                    <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}>{val}</motion.span>
+                    <motion.span initial={{ scale: 0.5 }} animate={{ scale: 1 }}>{val}</motion.span>
                   ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', width: '100%', height: '100%', padding: '2px' }}>
                       {[1,2,3,4,5,6,7,8,9].map(n => (
-                        <span key={n} style={{ fontSize: '0.5rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span key={n} style={{ fontSize: '0.55rem', color: 'var(--duo-text-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600 }}>
                           {pencilMarks.includes(n) ? n : ''}
                         </span>
                       ))}
@@ -116,40 +156,38 @@ export const SudokuBoard: React.FC = () => {
         </div>
       </motion.div>
       
-      <div style={{ display: 'flex', gap: '10px', marginTop: '20px', flexWrap: 'wrap', justifyContent: 'center', padding: '0 10px' }}>
+      {/* 3D Numpad & Controls */}
+      <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap', justifyContent: 'center', maxWidth: '480px', padding: '0 10px' }}>
         {[1,2,3,4,5,6,7,8,9].map(num => (
           <button 
             key={num}
             onClick={() => handleNumberInput(num)}
-            className="btn-interactive"
+            className="btn-duo btn-duo-gray"
             style={{
-              width: '45px', height: '45px', 
-              background: 'var(--bg-card)', 
-              color: 'var(--text-main)',
-              border: '1px solid var(--border-glass)',
-              borderRadius: 'var(--radius-sm)',
-              fontSize: '1.2rem',
-              cursor: 'pointer'
+              width: '46px', 
+              height: '48px', 
+              fontSize: '1.3rem',
+              fontWeight: 800,
+              padding: 0
             }}
           >
             {num}
           </button>
         ))}
         <button 
-          onClick={() => setIsNotesMode(!isNotesMode)}
-          className="btn-interactive"
+          onClick={() => {
+            playPop();
+            setIsNotesMode(!isNotesMode);
+          }}
+          className={`btn-duo ${isNotesMode ? 'btn-duo-green' : 'btn-duo-gray'}`}
           style={{
-            padding: '0 15px',
-            height: '45px',
-            background: isNotesMode ? 'var(--accent-primary)' : 'var(--bg-card)', 
-            color: 'var(--text-main)',
-            border: '1px solid var(--border-glass)',
-            borderRadius: 'var(--radius-sm)',
-            cursor: 'pointer',
-            fontWeight: 600
+            height: '48px',
+            padding: '0 18px',
+            fontSize: '1rem',
+            fontWeight: 800
           }}
         >
-          📝 Notes {isNotesMode ? 'ON' : 'OFF'}
+          📝 Notizen {isNotesMode ? 'AN' : 'AUS'}
         </button>
       </div>
     </div>
