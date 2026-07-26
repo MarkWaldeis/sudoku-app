@@ -8,7 +8,7 @@ export interface LeaderboardEntry {
 }
 
 const DEFAULT_LEADERBOARD: LeaderboardEntry[] = [
-  { id: '1', name: 'SudoEule 🦉', avatar: '🦉', xp: 2450, league: 'Diamant' },
+  { id: '1', name: 'SudoBuddy 👾', avatar: '👾', xp: 2450, league: 'Diamant' },
   { id: '2', name: 'ZahlenAkrobat 🔢', avatar: '🦊', xp: 1890, league: 'Gold' },
   { id: '3', name: 'SudokuMaster99 👑', avatar: '🦁', xp: 1420, league: 'Gold' },
   { id: '4', name: 'MatheProfi 📐', avatar: '🐼', xp: 980, league: 'Silber' },

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import '../../styles/duolingo.css';
 import { playPop } from '../../utils/soundEffects';
 
@@ -24,27 +25,35 @@ export const MascotAssistant: React.FC<MascotAssistantProps> = ({
       opacity: isVisible ? 1 : 0,
       pointerEvents: isVisible ? 'auto' : 'none'
     }}>
-      {/* Mascot SVG (Sudo Owl) */}
-      <div 
+      {/* Mascot Image (Animated) */}
+      <motion.div 
         className="mascot-float"
         onClick={() => playPop()}
-        style={{ cursor: 'pointer' }}
+        style={{ 
+          cursor: 'pointer',
+          width: '90px',
+          height: '90px',
+          borderRadius: '50%',
+          overflow: 'hidden',
+          border: '4px solid var(--duo-gray)',
+          boxShadow: '0 4px 0 var(--duo-gray-shadow)',
+          flexShrink: 0,
+          backgroundColor: 'white'
+        }}
+        whileHover={{ scale: 1.1, rotate: [0, -10, 10, -10, 0] }}
+        whileTap={{ scale: 0.9 }}
+        animate={{ y: [0, -8, 0] }}
+        transition={{ 
+          y: { duration: 3, repeat: Infinity, ease: "easeInOut" },
+          rotate: { duration: 0.5 }
+        }}
       >
-        <svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          {/* Owl Body */}
-          <circle cx="50" cy="50" r="40" fill="var(--duo-green)" />
-          {/* Eyes */}
-          <circle cx="35" cy="45" r="15" fill="white" />
-          <circle cx="65" cy="45" r="15" fill="white" />
-          <circle cx="35" cy="45" r="5" fill="var(--duo-text-dark)" />
-          <circle cx="65" cy="45" r="5" fill="var(--duo-text-dark)" />
-          {/* Beak */}
-          <path d="M50 55 L45 65 L55 65 Z" fill="var(--duo-yellow)" />
-          {/* Wings */}
-          <path d="M15 55 Q 5 65 10 75 Q 25 70 25 60 Z" fill="var(--duo-green-shadow)" />
-          <path d="M85 55 Q 95 65 90 75 Q 75 70 75 60 Z" fill="var(--duo-green-shadow)" />
-        </svg>
-      </div>
+        <img 
+          src="/mascot.jpg" 
+          alt="Sudoku Mascot" 
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+        />
+      </motion.div>
 
       {/* Speech Bubble */}
       <div style={{
