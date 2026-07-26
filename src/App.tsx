@@ -5,6 +5,7 @@ import { HeaderStats } from './components/ui/HeaderStats';
 import { LevelPathMap } from './components/ui/LevelPathMap';
 import { MascotAssistant } from './components/ui/MascotAssistant';
 import { playPop, playVictoryFanfare, playErrorBuzz } from './utils/soundEffects';
+import { campaignLevels } from './logic/campaignLevels';
 import { BottomNav } from './components/ui/BottomNav';
 import { StatsModal } from './components/ui/StatsModal';
 import { LeaderboardModal } from './components/ui/LeaderboardModal';

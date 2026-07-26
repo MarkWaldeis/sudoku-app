@@ -65,7 +65,6 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose }) =
         }}>
           {leaderboard.map((entry, index) => {
             const rank = index + 1;
-            const isTop3 = rank <= 3;
             const rankBadge = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
 
             return (
