@@ -24,14 +24,17 @@ Eine produktionsreife, spielerische Sudoku-PWA im ikonischen **Duolingo 3D-Look*
 ---
 
 ## 📦 Kürzlich umgesetzt
-- **Neues Maskottchen:** Eigenes KI-generiertes Maskottchen (`public/mascot.jpg`) mit `framer-motion` Schwebe- & Klick-Animationen in `MascotAssistant.tsx`.
-- **Leaderboard Upgrade:** "SudoEule 🦉" zu "SudoBuddy 👾" angepasst.
-- **Git Push & Host:** Alle Änderungen direkt auf GitHub `main` gepusht.
+- **Duolingo Shop System (`ShopModal.tsx`)**: Kaufen von Herzen-Auffüllungen, Tipp-Paketen, Streak-Schutz und freischaltbaren Maskottchen-Skins.
+- **Edelsteine-Währung (💎)**: Belohnungssystem für gelöste Züge, geschaffte Level und Schnelligkeits-Boni.
+- **💡 Tipp-System**: Interaktiver Tipp-Button in den Sudoku-Bedienelementen mit gelber Leucht-Animation (`hintedCell`) und automatischer Feldfindung.
+- **⏱️ Zeit-Bonus (Speed Bonus)**: Live-Timer in der Kopfzeile und Extra-Edelsteine & XP bei schnellem Lösen.
+- **🎭 Maskottchen-Skins**: 4 freischaltbare Skins (SudoBuddy 👾, Schlauer Fuchs 🦊, König Sudo 👑, Zahlen-Ninja 🥷) mit dynamischer Vorschau im Shop und Anbindung an `MascotAssistant.tsx`.
+- **Git Push & Host:** Vollständiges Deployment auf GitHub `main`.
 
 ---
 
 ## 🎯 Nächste geplante Meilensteine
 1. Cloud-Synchronisation (z.B. via Supabase oder Sync-Code) für spielstandübergreifendes Spielen auf PC & Handy.
 2. Tägliche Sudoku-Herausforderungen ("Daily Quests").
-3. Weitere Maskottchen-Skins / Einstellungs-Optionen.
+
 
