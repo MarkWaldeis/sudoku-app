@@ -15,12 +15,12 @@ export const MascotAssistant: React.FC<MascotAssistantProps> = ({
   return (
     <div style={{
       position: 'fixed',
-      bottom: '20px',
-      left: '20px',
+      bottom: '80px',
+      left: '16px',
       display: 'flex',
       alignItems: 'flex-end',
-      gap: '16px',
-      zIndex: 1000,
+      gap: '12px',
+      zIndex: 999,
       transition: 'opacity 0.3s',
       opacity: isVisible ? 1 : 0,
       pointerEvents: isVisible ? 'auto' : 'none'

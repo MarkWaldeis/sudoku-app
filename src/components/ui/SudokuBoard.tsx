@@ -9,15 +9,13 @@ export const SudokuBoard: React.FC = () => {
   const [selectedCell, setSelectedCell] = useState<{r: number, c: number} | null>(null);
   const [isNotesMode, setIsNotesMode] = useState(false);
 
-  if (!state) return null;
-
   const handleCellClick = (r: number, c: number) => {
     playPop();
     setSelectedCell({ r, c });
   };
 
-  const handleNumberInput = (num: number) => {
-    if (!selectedCell || state.isGameOver) return;
+  const handleNumberInput = React.useCallback((num: number) => {
+    if (!selectedCell || !state || state.isGameOver) return;
     const { r, c } = selectedCell;
     if (isNotesMode) {
       playPop();
@@ -30,10 +28,11 @@ export const SudokuBoard: React.FC = () => {
         playErrorBuzz();
       }
     }
-  };
+  }, [selectedCell, state, isNotesMode, togglePencilMark, makeMove]);
 
   // Keyboard support
   React.useEffect(() => {
+    if (!state) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key >= '1' && e.key <= '9') {
         handleNumberInput(parseInt(e.key));
@@ -49,7 +48,9 @@ export const SudokuBoard: React.FC = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedCell, isNotesMode, makeMove, togglePencilMark]);
+  }, [state, selectedCell, isNotesMode, makeMove, handleNumberInput]);
+
+  if (!state) return null;
 
   const realSolution = state ? deobfuscateSolution(state.obfuscatedSolution) : null;
 

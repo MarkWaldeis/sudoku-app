@@ -4,13 +4,16 @@
   --duo-blue: #1cb0f6;
   --duo-blue-shadow: #1899d6;
   --duo-yellow: #ffc800;
+  --duo-yellow-shadow: #e5a100;
   --duo-purple: #ce82ff;
+  --duo-purple-shadow: #a453e0;
   --duo-red: #ff4b4b;
   --duo-red-shadow: #ea2b2b;
   --duo-gray: #e5e5e5;
   --duo-gray-shadow: #cccccc;
+  --duo-bg-light: #f7f9fa;
   --duo-text-dark: #3c3c3c;
-  --duo-text-light: #afafaf;
+  --duo-text-light: #6e6e6e;
 }
 
 .btn-duo {
@@ -42,6 +45,7 @@
 
 .btn-duo-blue {
   background-color: var(--duo-blue);
+  color: white;
   box-shadow: 0 4px 0 var(--duo-blue-shadow);
 }
 
@@ -52,12 +56,46 @@
 
 .btn-duo-red {
   background-color: var(--duo-red);
+  color: white;
   box-shadow: 0 4px 0 var(--duo-red-shadow);
 }
 
 .btn-duo-red:active, .btn-duo-red.active {
   transform: translateY(4px);
   box-shadow: 0 0 0 var(--duo-red-shadow);
+}
+
+.btn-duo-gray {
+  background-color: var(--duo-gray);
+  color: var(--duo-text-dark);
+  box-shadow: 0 4px 0 var(--duo-gray-shadow);
+}
+
+.btn-duo-gray:active, .btn-duo-gray.active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 var(--duo-gray-shadow);
+}
+
+.btn-duo-yellow {
+  background-color: var(--duo-yellow);
+  color: var(--duo-text-dark);
+  box-shadow: 0 4px 0 var(--duo-yellow-shadow);
+}
+
+.btn-duo-yellow:active, .btn-duo-yellow.active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 var(--duo-yellow-shadow);
+}
+
+.btn-duo-purple {
+  background-color: var(--duo-purple);
+  color: white;
+  box-shadow: 0 4px 0 var(--duo-purple-shadow);
+}
+
+.btn-duo-purple:active, .btn-duo-purple.active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 var(--duo-purple-shadow);
 }
 
 .btn-duo-disabled {
@@ -70,6 +108,11 @@
 .btn-duo-disabled:active {
   transform: none;
   box-shadow: 0 4px 0 var(--duo-gray-shadow);
+}
+
+.btn-duo:focus-visible, button:focus-visible {
+  outline: 3px solid var(--duo-blue);
+  outline-offset: 2px;
 }
 
 /* Mascot Animation */

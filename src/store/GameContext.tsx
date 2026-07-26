@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
 import { generateSudoku, type Board, type Difficulty } from '../logic/sudokuGenerator';
+import { campaignLevels } from '../logic/campaignLevels';
 import { saveGame, loadGame, loadProfile, saveProfile, type UserProfile, defaultProfile } from './storage';
 
 type PencilMarks = { [key: string]: number[] };
@@ -236,6 +237,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         ? p.unlockedLevels 
         : [...p.unlockedLevels, levelId + 1];
 
+      // Dynamic level XP reward
+      const levelConfig = campaignLevels.find(l => l.id === levelId);
+      const reward = levelConfig ? levelConfig.xpReward : 100;
+
       // Streak logic on win
       const today = new Date().toDateString();
       let newStreak = p.streak;
@@ -251,7 +256,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       return {
         ...p,
-        xp: p.xp + 100, // +100 XP pro absolviertem Level
+        xp: p.xp + reward,
         unlockedLevels: newUnlocked,
         streak: newStreak,
         lastPlayedDate: today
@@ -259,8 +264,20 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
   };
 
+  const contextValue = useMemo(() => ({
+    state: state!,
+    startNewGame,
+    makeMove,
+    togglePencilMark,
+    undo,
+    redo,
+    checkSolution,
+    profile,
+    completeLevel
+  }), [state, profile]);
+
   return (
-    <GameContext.Provider value={{ state: state!, startNewGame, makeMove, togglePencilMark, undo, redo, checkSolution, profile, completeLevel }}>
+    <GameContext.Provider value={contextValue}>
       {children}
     </GameContext.Provider>
   );

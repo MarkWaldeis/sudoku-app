@@ -23,7 +23,15 @@ Eine produktionsreife, spielerische Sudoku-PWA im ikonischen **Duolingo 3D-Look*
 
 ---
 
+## 📦 Kürzlich umgesetzt
+- **Neues Maskottchen:** Eigenes KI-generiertes Maskottchen (`public/mascot.jpg`) mit `framer-motion` Schwebe- & Klick-Animationen in `MascotAssistant.tsx`.
+- **Leaderboard Upgrade:** "SudoEule 🦉" zu "SudoBuddy 👾" angepasst.
+- **Git Push & Host:** Alle Änderungen direkt auf GitHub `main` gepusht.
+
+---
+
 ## 🎯 Nächste geplante Meilensteine
-1. Erweiterung der Supabase Cloud-Anbindung für Multiplayer-Duelle.
-2. Tägliche Sudoku-Herausforderungen ("Daily Quest").
-3. Zusätzliche Sounds & Duo-Mascot Skins.
+1. Cloud-Synchronisation (z.B. via Supabase oder Sync-Code) für spielstandübergreifendes Spielen auf PC & Handy.
+2. Tägliche Sudoku-Herausforderungen ("Daily Quests").
+3. Weitere Maskottchen-Skins / Einstellungs-Optionen.
+
