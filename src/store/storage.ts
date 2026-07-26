@@ -35,6 +35,9 @@ export interface UserProfile {
   streak: number;
   lastPlayedDate: string | null;
   unlockedLevels: number[];
+  totalGamesPlayed: number;
+  correctMoves: number;
+  incorrectMoves: number;
 }
 
 export const defaultProfile: UserProfile = {
@@ -42,6 +45,9 @@ export const defaultProfile: UserProfile = {
   streak: 0,
   lastPlayedDate: null,
   unlockedLevels: [1],
+  totalGamesPlayed: 0,
+  correctMoves: 0,
+  incorrectMoves: 0,
 };
 
 export const saveProfile = async (profile: UserProfile) => {

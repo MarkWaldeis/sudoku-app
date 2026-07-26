@@ -85,6 +85,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       lastMoveTime: null,
     };
     setState(newState);
+    setProfile(p => ({
+      ...p,
+      totalGamesPlayed: (p.totalGamesPlayed || 0) + 1
+    }));
   };
 
   const updateStateAndHistory = (newBoard: Board, newPencilMarks: PencilMarks) => {
@@ -135,6 +139,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           if (newLives <= 0) {
             newIsGameOver = true;
           }
+          setProfile(p => ({ ...p, incorrectMoves: (p.incorrectMoves || 0) + 1 }));
         } else {
           // Correct move
           const timeSinceLast = prev.lastMoveTime ? newLastMoveTime - prev.lastMoveTime : 10000;
@@ -144,9 +149,13 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             newComboCount = 1;
           }
           
-          // Add XP
+          // Add XP & stats
           const xpGained = 10 + (newComboCount > 1 ? 5 : 0); // Bonus for combo
-          setProfile(p => ({ ...p, xp: p.xp + xpGained }));
+          setProfile(p => ({ 
+            ...p, 
+            xp: p.xp + xpGained,
+            correctMoves: (p.correctMoves || 0) + 1
+          }));
         }
       }
 

@@ -5,7 +5,9 @@ import { HeaderStats } from './components/ui/HeaderStats';
 import { LevelPathMap } from './components/ui/LevelPathMap';
 import { MascotAssistant } from './components/ui/MascotAssistant';
 import { playPop, playVictoryFanfare, playErrorBuzz } from './utils/soundEffects';
-import { campaignLevels } from './logic/campaignLevels';
+import { BottomNav } from './components/ui/BottomNav';
+import { StatsModal } from './components/ui/StatsModal';
+import { LeaderboardModal } from './components/ui/LeaderboardModal';
 import './styles/duolingo.css';
 import confetti from 'canvas-confetti';
 import { motion } from 'framer-motion';
@@ -15,6 +17,8 @@ const MainAppContent: React.FC = () => {
   const [view, setView] = useState<'campaign' | 'game'>('campaign');
   const [mascotMessage, setMascotMessage] = useState("Willkommen! Wähle ein Level auf dem Pfad.");
   const [showVictoryModal, setShowVictoryModal] = useState(false);
+  const [showStatsModal, setShowStatsModal] = useState(false);
+  const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
   const [playingLevel, setPlayingLevel] = useState<number | null>(null);
   const [playingDifficulty, setPlayingDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
 
@@ -60,7 +64,7 @@ const MainAppContent: React.FC = () => {
       fontFamily: "'Nunito', sans-serif",
       color: 'var(--duo-text-dark)',
       position: 'relative',
-      paddingBottom: '80px'
+      paddingBottom: '100px'
     }}>
       {/* Header Bar */}
       <HeaderStats 
@@ -190,6 +194,32 @@ const MainAppContent: React.FC = () => {
             </button>
           </motion.div>
         </div>
+      {/* Bottom Navigation */}
+      <BottomNav
+        currentTab={view === 'game' ? 'game' : 'campaign'}
+        onSelectTab={(tab) => {
+          if (tab === 'campaign') {
+            setView('campaign');
+          } else if (tab === 'game') {
+            if (view !== 'game') {
+              handleStartLevel('easy', null);
+            }
+          } else if (tab === 'stats') {
+            setShowStatsModal(true);
+          } else if (tab === 'leaderboard') {
+            setShowLeaderboardModal(true);
+          }
+        }}
+      />
+
+      {/* Stats Modal */}
+      {showStatsModal && (
+        <StatsModal onClose={() => setShowStatsModal(false)} />
+      )}
+
+      {/* Leaderboard Modal */}
+      {showLeaderboardModal && (
+        <LeaderboardModal onClose={() => setShowLeaderboardModal(false)} />
       )}
     </div>
   );
