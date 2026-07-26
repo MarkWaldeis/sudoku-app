@@ -15,6 +15,8 @@ const MainAppContent: React.FC = () => {
   const [view, setView] = useState<'campaign' | 'game'>('campaign');
   const [mascotMessage, setMascotMessage] = useState("Willkommen! Wähle ein Level auf dem Pfad.");
   const [showVictoryModal, setShowVictoryModal] = useState(false);
+  const [playingLevel, setPlayingLevel] = useState<number | null>(null);
+  const [playingDifficulty, setPlayingDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
 
   useEffect(() => {
     if (state?.isGameOver) {
@@ -23,8 +25,10 @@ const MainAppContent: React.FC = () => {
     }
   }, [state?.isGameOver]);
 
-  const handleStartLevel = (difficulty: 'easy' | 'medium' | 'hard') => {
+  const handleStartLevel = (difficulty: 'easy' | 'medium' | 'hard', levelId: number | null = null) => {
     playPop();
+    setPlayingDifficulty(difficulty);
+    setPlayingLevel(levelId);
     startNewGame(difficulty);
     setView('game');
     setMascotMessage("Konzentriere dich! Finde alle fehlenden Zahlen.");
@@ -38,7 +42,9 @@ const MainAppContent: React.FC = () => {
         spread: 80,
         origin: { y: 0.6 }
       });
-      completeLevel(profile.unlockedLevels.length);
+      if (playingLevel) {
+        completeLevel(playingLevel);
+      }
       setShowVictoryModal(true);
       setMascotMessage("Großartig gemacht! Du hast das Level gemeistert! 🎉");
     } else {
@@ -61,7 +67,7 @@ const MainAppContent: React.FC = () => {
         streak={profile.streak} 
         lives={state?.lives ?? 3} 
         xp={profile.xp} 
-        level={profile.unlockedLevels.length} 
+        level={view === 'game' && playingLevel ? playingLevel : profile.unlockedLevels.length} 
       />
 
       {/* Navigation Bar */}
@@ -81,7 +87,10 @@ const MainAppContent: React.FC = () => {
         </button>
         <button 
           className={`btn-duo ${view === 'game' ? 'btn-duo-green' : 'btn-duo-gray'}`}
-          onClick={() => handleStartLevel('easy')}
+          onClick={() => {
+            if (view === 'game' && !state?.isGameOver && !window.confirm("Möchtest du das aktuelle Spiel wirklich abbrechen?")) return;
+            handleStartLevel('easy', null);
+          }}
         >
           ⚡ Schnelles Spiel
         </button>
@@ -98,10 +107,10 @@ const MainAppContent: React.FC = () => {
             onLevelSelect={(level) => {
               const levelData = campaignLevels.find(l => l.id === level);
               if (levelData) {
-                handleStartLevel(levelData.difficulty as 'easy' | 'medium' | 'hard');
+                handleStartLevel(levelData.difficulty as 'easy' | 'medium' | 'hard', level);
                 setMascotMessage(`Starte Level ${level}: ${levelData.description}`);
               } else {
-                handleStartLevel('easy');
+                handleStartLevel('easy', level);
               }
             }}
           />
@@ -142,7 +151,7 @@ const MainAppContent: React.FC = () => {
             <p style={{ color: 'var(--duo-text-light)', marginBottom: '24px' }}>Du hast alle 3 Herzen verloren. Keine Sorge, Übung macht den Meister!</p>
             <button 
               className="btn-duo btn-duo-green"
-              onClick={() => handleStartLevel('easy')}
+              onClick={() => handleStartLevel(playingDifficulty, playingLevel)}
               style={{ width: '100%' }}
             >
               Erneut versuchen

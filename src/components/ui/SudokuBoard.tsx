@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useGame } from '../../store/GameContext';
-import { playPop, playSuccessChime } from '../../utils/soundEffects';
+import { useGame, deobfuscateSolution } from '../../store/GameContext';
+import { playPop, playSuccessChime, playErrorBuzz } from '../../utils/soundEffects';
 import '../../styles/duolingo.css';
 
 export const SudokuBoard: React.FC = () => {
@@ -23,10 +23,12 @@ export const SudokuBoard: React.FC = () => {
       playPop();
       togglePencilMark(r, c, num);
     } else {
-      makeMove(r, c, num);
-      // Play appropriate sound based on move correctness checked in state
-      // (The GameContext handles correctness check internally, but we can play sound)
-      playSuccessChime();
+      const isCorrect = makeMove(r, c, num);
+      if (isCorrect === true) {
+        playSuccessChime();
+      } else if (isCorrect === false) {
+        playErrorBuzz();
+      }
     }
   };
 
@@ -48,6 +50,8 @@ export const SudokuBoard: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedCell, isNotesMode, makeMove, togglePencilMark]);
+
+  const realSolution = state ? deobfuscateSolution(state.obfuscatedSolution) : null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
@@ -106,6 +110,7 @@ export const SudokuBoard: React.FC = () => {
               const isSelected = selectedCell?.r === rowIndex && selectedCell?.c === colIndex;
               const isRelated = selectedCell && (selectedCell.r === rowIndex || selectedCell.c === colIndex);
               const isInitial = state.initialBoard[rowIndex][colIndex] !== null;
+              const isWrong = !isInitial && val !== null && realSolution && val !== realSolution[rowIndex][colIndex];
               
               const pencilMarks = state.pencilMarks[`${rowIndex}-${colIndex}`] || [];
 
@@ -118,10 +123,12 @@ export const SudokuBoard: React.FC = () => {
                   animate={{ 
                     backgroundColor: isSelected 
                       ? 'var(--duo-blue)' 
-                      : isRelated 
-                        ? '#e5f6ff' 
-                        : 'white',
-                    color: isSelected ? 'white' : isInitial ? 'var(--duo-text-dark)' : 'var(--duo-green)'
+                      : isWrong
+                        ? '#ffe5e5'
+                        : isRelated 
+                          ? '#e5f6ff' 
+                          : 'white',
+                    color: isSelected ? 'white' : isWrong ? 'var(--duo-red)' : isInitial ? 'var(--duo-text-dark)' : 'var(--duo-green)'
                   }}
                   style={{
                     width: 'clamp(32px, 8.5vw, 52px)',
@@ -174,6 +181,23 @@ export const SudokuBoard: React.FC = () => {
             {num}
           </button>
         ))}
+        <button 
+          onClick={() => {
+            if (selectedCell && !isNotesMode) {
+              playPop();
+              makeMove(selectedCell.r, selectedCell.c, null);
+            }
+          }}
+          className="btn-duo btn-duo-gray"
+          style={{
+            height: '48px',
+            padding: '0 12px',
+            fontSize: '1rem',
+            fontWeight: 800
+          }}
+        >
+          ⌫
+        </button>
         <button 
           onClick={() => {
             playPop();

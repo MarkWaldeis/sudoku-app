@@ -31,7 +31,7 @@ export const LevelPathMap: React.FC<LevelPathMapProps> = ({ currentLevel, maxLev
       maxHeight: 'calc(100vh - 80px)'
     }}>
       {[...Array(maxLevel)].map((_, i) => {
-        const level = maxLevel - i; // Top down mapping
+        const level = i + 1; // Top down mapping from 1 to maxLevel
         const isUnlocked = level <= currentLevel;
         const isActive = level === currentLevel;
         const offset = Math.sin(level * 0.8) * 60; // Zig-zag effect
@@ -45,9 +45,9 @@ export const LevelPathMap: React.FC<LevelPathMapProps> = ({ currentLevel, maxLev
             alignItems: 'center'
           }}>
             {/* Chapter markers */}
-            {level === 20 && <ChapterHeader title="Kapitel 3: Meister" />}
-            {level === 13 && <ChapterHeader title="Kapitel 2: Fortgeschritten" />}
-            {level === 6 && <ChapterHeader title="Kapitel 1: Anfänger" />}
+            {level === 1 && <ChapterHeader title="Kapitel 1: Anfänger" />}
+            {level === 5 && <ChapterHeader title="Kapitel 2: Fortgeschritten" />}
+            {level === 10 && <ChapterHeader title="Kapitel 3: Meister" />}
 
             <button
               className={`btn-duo ${!isUnlocked ? 'btn-duo-disabled' : isActive ? 'btn-duo-blue' : ''}`}
@@ -74,7 +74,8 @@ export const LevelPathMap: React.FC<LevelPathMapProps> = ({ currentLevel, maxLev
                 position: 'absolute',
                 top: '-20px',
                 fontSize: '2rem',
-                animation: 'float 2s ease-in-out infinite'
+                animation: 'float 2s ease-in-out infinite',
+                pointerEvents: 'none'
               }}>
                 👑
               </div>

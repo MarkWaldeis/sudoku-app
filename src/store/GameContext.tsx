@@ -20,7 +20,7 @@ interface GameState {
 interface GameContextProps {
   state: GameState;
   startNewGame: (difficulty: Difficulty) => void;
-  makeMove: (row: number, col: number, val: number | null) => void;
+  makeMove: (row: number, col: number, val: number | null) => boolean | null;
   togglePencilMark: (row: number, col: number, val: number) => void;
   undo: () => void;
   redo: () => void;
@@ -38,7 +38,7 @@ const obfuscateSolution = (solution: Board): string[] => {
   );
 };
 
-const deobfuscateSolution = (obfuscated: string[]): Board => {
+export const deobfuscateSolution = (obfuscated: string[]): Board => {
   return obfuscated.map(row => 
     atob(row).split('-').map(val => (val ? parseInt(val) / 7 : null))
   );
@@ -56,29 +56,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
     
     loadProfile().then(savedProfile => {
-      // Check and update streak based on date
-      const today = new Date().toDateString();
-      if (savedProfile.lastPlayedDate !== today) {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        
-        let newStreak = savedProfile.streak;
-        if (savedProfile.lastPlayedDate === yesterday.toDateString()) {
-          newStreak += 1; // Continued streak
-        } else if (savedProfile.lastPlayedDate !== null) {
-          newStreak = 1; // Streak broken, reset to 1 on first play today (or 0 and update on play)
-        } else {
-          newStreak = 1; // First time playing
-        }
-        
-        setProfile({
-          ...savedProfile,
-          streak: newStreak,
-          lastPlayedDate: today
-        });
-      } else {
-        setProfile(savedProfile);
-      }
+      setProfile(savedProfile);
     });
   }, []);
 
@@ -124,8 +102,9 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
   };
 
-  const makeMove = (row: number, col: number, val: number | null) => {
-    if (!state || state.initialBoard[row][col] !== null || state.isGameOver) return; // Prevent overwriting initial puzzle clues or playing after game over
+  const makeMove = (row: number, col: number, val: number | null): boolean | null => {
+    if (!state || state.initialBoard[row][col] !== null || state.isGameOver) return null;
+    if (state.board[row][col] === val) return null; // Same value, ignore to prevent double penalty
 
     // Check correctness if val is not null
     let isCorrect = true;
@@ -182,6 +161,9 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         lastMoveTime: newLastMoveTime
       };
     });
+
+    if (val === null) return null;
+    return isCorrect;
   };
 
   const togglePencilMark = (row: number, col: number, val: number) => {
@@ -244,10 +226,26 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const newUnlocked = p.unlockedLevels.includes(levelId + 1) 
         ? p.unlockedLevels 
         : [...p.unlockedLevels, levelId + 1];
+
+      // Streak logic on win
+      const today = new Date().toDateString();
+      let newStreak = p.streak;
+      if (p.lastPlayedDate !== today) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        if (p.lastPlayedDate === yesterday.toDateString()) {
+          newStreak += 1;
+        } else {
+          newStreak = 1;
+        }
+      }
+
       return {
         ...p,
         xp: p.xp + 100, // +100 XP pro absolviertem Level
-        unlockedLevels: newUnlocked
+        unlockedLevels: newUnlocked,
+        streak: newStreak,
+        lastPlayedDate: today
       };
     });
   };
