@@ -1,0 +1,1 @@
+{"name":"Duolingo Sudoku","short_name":"Sudoku","description":"Gamified Duolingo-style Sudoku PWA","start_url":"/sudoku-app/","display":"standalone","background_color":"#ffffff","theme_color":"#58cc02","lang":"en","scope":"/sudoku-app/","icons":[{"src":"mascot.jpg","sizes":"192x192","type":"image/jpeg"},{"src":"mascot.jpg","sizes":"512x512","type":"image/jpeg"}]}
