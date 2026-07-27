@@ -350,13 +350,18 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const completeLevel = (levelId: number, elapsedTimeSeconds: number = 0) => {
     const levelConfig = campaignLevels.find(l => l.id === levelId);
-    const baseXp = levelConfig ? levelConfig.xpReward : 100;
-    const baseGems = 25;
+    const difficulty = levelConfig?.difficulty || 'easy';
+    let baseXp = levelConfig ? levelConfig.xpReward : 100;
+    let baseGems = 25;
+
+    if (difficulty === 'extreme') {
+      baseXp = 2500;
+      baseGems = 250;
+    }
 
     // Speed bonus calculation
     let speedBonusGems = 0;
     let speedBonusXp = 0;
-    const difficulty = levelConfig?.difficulty || 'easy';
 
     if (elapsedTimeSeconds > 0) {
       if (difficulty === 'easy' && elapsedTimeSeconds <= 180) { // < 3 mins
@@ -368,6 +373,9 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       } else if (difficulty === 'hard' && elapsedTimeSeconds <= 480) { // < 8 mins
         speedBonusGems = 200;
         speedBonusXp = 250;
+      } else if (difficulty === 'extreme' && elapsedTimeSeconds <= 900) { // < 15 mins
+        speedBonusGems = 500;
+        speedBonusXp = 1000;
       }
     }
 

@@ -23,7 +23,7 @@ const MainAppContent: React.FC = () => {
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
   const [isShopOpen, setIsShopOpen] = useState(false);
   const [playingLevel, setPlayingLevel] = useState<number | null>(null);
-  const [playingDifficulty, setPlayingDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
+  const [playingDifficulty, setPlayingDifficulty] = useState<'easy' | 'medium' | 'hard' | 'extreme'>('easy');
   
   // Timer state
   const [timerSeconds, setTimerSeconds] = useState<number>(0);
@@ -49,14 +49,18 @@ const MainAppContent: React.FC = () => {
     }
   }, [state?.isGameOver]);
 
-  const handleStartLevel = (difficulty: 'easy' | 'medium' | 'hard', levelId: number | null = null) => {
+  const handleStartLevel = (difficulty: 'easy' | 'medium' | 'hard' | 'extreme', levelId: number | null = null) => {
     playPop();
     setPlayingDifficulty(difficulty);
     setPlayingLevel(levelId);
     setTimerSeconds(0);
     startNewGame(difficulty);
     setView('game');
-    setMascotMessage("Konzentriere dich! Finde alle fehlenden Zahlen.");
+    if (difficulty === 'extreme') {
+      setMascotMessage("Bist du wahnsinnig? Das ist das EXTREME Sudoku-Level! Nur 17 Vorgaben! 💀🔥");
+    } else {
+      setMascotMessage("Konzentriere dich! Finde alle fehlenden Zahlen.");
+    }
   };
 
   const handleVerify = () => {
@@ -116,13 +120,22 @@ const MainAppContent: React.FC = () => {
           🗺️ Pfad
         </button>
         <button 
-          className={`btn-duo ${view === 'game' ? 'btn-duo-green' : 'btn-duo-gray'}`}
+          className={`btn-duo ${view === 'game' && playingDifficulty !== 'extreme' ? 'btn-duo-green' : 'btn-duo-gray'}`}
           onClick={() => {
             if (view === 'game' && !state?.isGameOver && !window.confirm("Möchtest du das aktuelle Spiel wirklich abbrechen?")) return;
             handleStartLevel('easy', null);
           }}
         >
           ⚡ Schnelles Spiel
+        </button>
+        <button 
+          className={`btn-duo ${view === 'game' && playingDifficulty === 'extreme' ? 'btn-duo-red' : 'btn-duo-purple'}`}
+          onClick={() => {
+            if (view === 'game' && !state?.isGameOver && !window.confirm("Möchtest du das aktuelle Spiel abbrechen?")) return;
+            handleStartLevel('extreme', 99);
+          }}
+        >
+          💀 Extrem-Level
         </button>
         <button 
           className="btn-duo btn-duo-yellow"
@@ -256,15 +269,20 @@ const MainAppContent: React.FC = () => {
 
       {/* Bottom Navigation */}
       <BottomNav
-        currentTab={isShopOpen ? 'shop' : view === 'game' ? 'game' : 'campaign'}
+        currentTab={isShopOpen ? 'shop' : view === 'game' && playingDifficulty === 'extreme' ? 'extreme' : view === 'game' ? 'game' : 'campaign'}
         onSelectTab={(tab) => {
           if (tab === 'campaign') {
             setIsShopOpen(false);
             setView('campaign');
           } else if (tab === 'game') {
             setIsShopOpen(false);
-            if (view !== 'game') {
+            if (view !== 'game' || playingDifficulty === 'extreme') {
               handleStartLevel('easy', null);
+            }
+          } else if (tab === 'extreme') {
+            setIsShopOpen(false);
+            if (view !== 'game' || playingDifficulty !== 'extreme') {
+              handleStartLevel('extreme', 99);
             }
           } else if (tab === 'shop') {
             setIsShopOpen(true);

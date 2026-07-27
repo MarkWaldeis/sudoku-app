@@ -1,4 +1,28 @@
-export type Difficulty = 'easy' | 'medium' | 'hard';
+export type Difficulty = 'easy' | 'medium' | 'hard' | 'extreme';
+
+export const EXTREME_PUZZLE: Board = [
+  [1, null, null, null, null, 7, null, 9, null],
+  [null, 3, null, null, 2, null, null, null, 8],
+  [null, null, 9, 6, null, null, 5, null, null],
+  [null, null, 5, 3, null, null, 9, null, null],
+  [null, 1, null, null, 8, null, null, null, 2],
+  [6, null, null, null, null, 4, null, null, null],
+  [3, null, null, null, null, null, null, 1, null],
+  [null, 4, null, null, null, null, null, null, 7],
+  [null, null, 7, null, null, null, 3, null, null]
+];
+
+export const EXTREME_SOLUTION: Board = [
+  [1, 6, 2, 8, 5, 7, 4, 9, 3],
+  [5, 3, 4, 1, 2, 9, 6, 7, 8],
+  [7, 8, 9, 6, 4, 3, 5, 2, 1],
+  [4, 7, 5, 3, 1, 2, 9, 8, 6],
+  [9, 1, 3, 5, 8, 6, 7, 4, 2],
+  [6, 2, 8, 7, 9, 4, 1, 3, 5],
+  [3, 5, 6, 4, 7, 8, 2, 1, 9],
+  [2, 4, 1, 9, 3, 5, 8, 6, 7],
+  [8, 9, 7, 2, 6, 1, 3, 5, 4]
+];
 export type Board = (number | null)[][];
 
 const BLANK: null = null;
@@ -74,6 +98,13 @@ const countSolutions = (board: Board, limit: number = 2): number => {
 };
 
 export const generateSudoku = (difficulty: Difficulty): { puzzle: Board; solution: Board } => {
+  if (difficulty === 'extreme' && Math.random() < 0.5) {
+    return {
+      puzzle: EXTREME_PUZZLE.map(row => [...row]),
+      solution: EXTREME_SOLUTION.map(row => [...row])
+    };
+  }
+
   const solution = createEmptyBoard();
   solve(solution);
 
@@ -84,6 +115,7 @@ export const generateSudoku = (difficulty: Difficulty): { puzzle: Board; solutio
     case 'easy': cellsToRemove = 30; break;
     case 'medium': cellsToRemove = 45; break;
     case 'hard': cellsToRemove = 60; break;
+    case 'extreme': cellsToRemove = 64; break;
   }
 
   const rawPositions = [];
