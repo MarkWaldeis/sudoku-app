@@ -9,7 +9,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'mascot.jpg'],
+      workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true
+      },
+      includeAssets: ['favicon.ico', 'mascot.jpg', 'mascot_fox.jpg', 'mascot_king.jpg', 'mascot_ninja.jpg'],
       manifest: {
         name: 'Duolingo Sudoku',
         short_name: 'Sudoku',
