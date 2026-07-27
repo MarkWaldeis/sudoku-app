@@ -29,6 +29,7 @@ Eine produktionsreife, spielerische Sudoku-PWA im ikonischen **Duolingo 3D-Look*
 - **💡 Tipp-System**: Interaktiver Tipp-Button in den Sudoku-Bedienelementen mit gelber Leucht-Animation (`hintedCell`) und automatischer Feldfindung.
 - **⏱️ Zeit-Bonus (Speed Bonus)**: Live-Timer in der Kopfzeile und Extra-Edelsteine & XP bei schnellem Lösen.
 - **🎭 Maskottchen-Skins**: 4 freischaltbare Skins (SudoBuddy 👾, Schlauer Fuchs 🦊, König Sudo 👑, Zahlen-Ninja 🥷) mit dynamischer Vorschau im Shop und Anbindung an `MascotAssistant.tsx`.
+- **💀 Extrem-Level Modus**: Neuer separater Reiter & Button für das extrem schwere Level mit nur 17 Vorgaben (inkl. berühmtem AI Escargot Preset) & +2500 XP / +250 Gems Belohnungen!
 - **Git Push & Host:** Vollständiges Deployment auf GitHub `main`.
 
 ---
