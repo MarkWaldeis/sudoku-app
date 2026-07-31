@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GameProvider, useGame } from './store/GameContext';
 import { SudokuBoard } from './components/ui/SudokuBoard';
 import { HeaderStats } from './components/ui/HeaderStats';
@@ -6,7 +6,7 @@ import { LevelPathMap } from './components/ui/LevelPathMap';
 import { MascotAssistant } from './components/ui/MascotAssistant';
 import { ModalShell } from './components/ui/ModalShell';
 import { MapIcon, BoltIcon, SkullIcon, CartIcon, UndoIcon, RedoIcon, CheckIcon, CloseIcon, HeartIcon, GemIcon, PartyIcon } from './components/ui/icons';
-import { playPop, playVictoryFanfare, playErrorBuzz } from './utils/soundEffects';
+import { playPop, playVictoryFanfare, playErrorBuzz, playWhoosh } from './utils/soundEffects';
 import { hapticTap, hapticVictory, hapticError } from './utils/haptics';
 import { campaignLevels } from './logic/campaignLevels';
 import { BottomNav } from './components/ui/BottomNav';
@@ -49,6 +49,8 @@ const MainAppContent: React.FC = () => {
   const [view, setView] = useState<'campaign' | 'game'>('campaign');
   const [mascotMessage, setMascotMessage] = useState('Willkommen! Wähle ein Level auf dem Pfad.');
   const [showVictoryModal, setShowVictoryModal] = useState(false);
+  const [victoryWave, setVictoryWave] = useState(false);
+  const victoryWaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
   const [isShopOpen, setIsShopOpen] = useState(false);
@@ -59,7 +61,14 @@ const MainAppContent: React.FC = () => {
   const [timerSeconds, setTimerSeconds] = useState<number>(0);
   const [victoryStats, setVictoryStats] = useState<{ xpGained: number; gemsGained: number; speedBonusGems: number } | null>(null);
 
-  const hasActiveGame = view === 'game' && !!state && !state.isGameOver && !showVictoryModal;
+  const hasActiveGame = view === 'game' && !!state && !state.isGameOver && !showVictoryModal && !victoryWave;
+
+  // Clear the pending victory-wave timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (victoryWaveTimeoutRef.current) clearTimeout(victoryWaveTimeoutRef.current);
+    };
+  }, []);
 
   // Timer interval – depends on *whether* a game runs, not on every move
   useEffect(() => {
@@ -99,6 +108,8 @@ const MainAppContent: React.FC = () => {
     setPlayingLevel(levelId);
     setTimerSeconds(0);
     setShowVictoryModal(false);
+    setVictoryWave(false);
+    if (victoryWaveTimeoutRef.current) clearTimeout(victoryWaveTimeoutRef.current);
     setVictoryStats(null);
     startNewGame(difficulty);
     setView('game');
@@ -112,12 +123,21 @@ const MainAppContent: React.FC = () => {
   const handleVerify = () => {
     if (checkSolution()) {
       playVictoryFanfare();
+      playWhoosh();
       hapticVictory();
       fireVictoryConfetti();
 
+      // Lock in the rewards immediately, but celebrate on the board first:
+      // the victory wave lets all numbers jump diagonally from bottom-left
+      // to top-right (16 diagonals * 45ms stagger + 620ms jump ≈ 1.35s).
       const stats = completeLevel(playingLevel || 1, timerSeconds);
       setVictoryStats(stats);
-      setShowVictoryModal(true);
+      setVictoryWave(true);
+      if (victoryWaveTimeoutRef.current) clearTimeout(victoryWaveTimeoutRef.current);
+      victoryWaveTimeoutRef.current = setTimeout(() => {
+        setVictoryWave(false);
+        setShowVictoryModal(true);
+      }, 1500);
       setMascotMessage(
         stats.speedBonusGems > 0
           ? 'Unglaublich schnell gelöst! Du hast den Zeit-Bonus eingestreift! ⚡💎'
@@ -270,7 +290,7 @@ const MainAppContent: React.FC = () => {
             </button>
           </div>
 
-          <SudokuBoard />
+          <SudokuBoard victoryWave={victoryWave} />
         </div>
       )}
 

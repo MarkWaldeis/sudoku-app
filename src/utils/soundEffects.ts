@@ -80,6 +80,33 @@ export const playErrorBuzz = () => {
   playOscillator('sawtooth', 150, 0.3, 0.4);
 };
 
+export const playWhoosh = () => {
+  // Rising sweep for the victory wave (bottom-left to top-right)
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  resumeIfSuspended(ctx);
+
+  try {
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+
+    oscillator.type = 'triangle';
+    oscillator.frequency.setValueAtTime(220, ctx.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(1400, ctx.currentTime + 0.9);
+
+    gainNode.gain.setValueAtTime(0.25, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1.0);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    oscillator.start();
+    oscillator.stop(ctx.currentTime + 1.0);
+  } catch {
+    // Never let audio feedback break gameplay.
+  }
+};
+
 export const playVictoryFanfare = () => {
   // Triumph melody
   const ctx = getAudioContext();

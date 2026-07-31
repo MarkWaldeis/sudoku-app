@@ -50,7 +50,7 @@ const SparkBurst: React.FC<{ row: number; col: number }> = ({ row, col }) => {
   );
 };
 
-export const SudokuBoard: React.FC = () => {
+export const SudokuBoard: React.FC<{ victoryWave?: boolean }> = ({ victoryWave = false }) => {
   const { state, solution, makeMove, togglePencilMark, useHint: requestHint, profile } = useGame();
   const [selectedCell, setSelectedCell] = useState<{ r: number; c: number } | null>(null);
   const [isNotesMode, setIsNotesMode] = useState(false);
@@ -243,6 +243,9 @@ export const SudokuBoard: React.FC = () => {
 
               const pencilMarks = state.pencilMarks[`${rowIndex}-${colIndex}`] || [];
 
+              // Victory wave: diagonal stagger from bottom-left (0) to top-right (16)
+              const waveDelay = (8 - rowIndex + colIndex) * 45;
+
               const bg = isHinted
                 ? '#fff4cc'
                 : isSelected
@@ -269,6 +272,7 @@ export const SudokuBoard: React.FC = () => {
                   onClick={() => handleCellClick(rowIndex, colIndex)}
                   role="button"
                   aria-label={`Zelle Reihe ${rowIndex + 1}, Spalte ${colIndex + 1}${val ? `, Wert ${val}` : ', leer'}`}
+                  className={victoryWave ? 'victory-wave-cell' : undefined}
                   style={{
                     width: 'clamp(30px, min(8.5vw, 5.6vh), 52px)',
                     height: 'clamp(30px, min(8.5vw, 5.6vh), 52px)',
@@ -285,6 +289,7 @@ export const SudokuBoard: React.FC = () => {
                     backgroundColor: bg,
                     color: fg,
                     boxShadow: isHinted ? 'inset 0 0 12px #ffc800' : 'none',
+                    animationDelay: victoryWave ? `${waveDelay}ms` : undefined,
                     transition:
                       'background-color 120ms var(--ease-out), color 120ms var(--ease-out), transform 100ms var(--ease-out)',
                   }}
@@ -293,7 +298,11 @@ export const SudokuBoard: React.FC = () => {
                   onPointerLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
                 >
                   {val !== null ? (
-                    <span key={val} className="cell-pop" style={{ display: 'inline-block' }}>
+                    <span
+                      key={val}
+                      className={victoryWave ? 'victory-wave-number' : 'cell-pop'}
+                      style={{ display: 'inline-block', animationDelay: victoryWave ? `${waveDelay}ms` : undefined }}
+                    >
                       {val}
                     </span>
                   ) : (
