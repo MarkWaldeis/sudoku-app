@@ -4,6 +4,7 @@ import '../../styles/duolingo.css';
 import { playPop } from '../../utils/soundEffects';
 import { hapticTap } from '../../utils/haptics';
 import { useGame } from '../../store/GameContext';
+import { getSkinById } from '../../logic/skins';
 import { CloseIcon } from './icons';
 
 interface MascotAssistantProps {
@@ -17,13 +18,8 @@ export const MascotAssistant: React.FC<MascotAssistantProps> = ({
   const { profile } = useGame();
 
   const base = import.meta.env.BASE_URL;
-  const skinImages: Record<string, string> = {
-    default: `${base}mascot.jpg`,
-    fox: `${base}mascot_fox.jpg`,
-    king: `${base}mascot_king.jpg`,
-    ninja: `${base}mascot_ninja.jpg`,
-  };
-  const mascotSrc = skinImages[profile.selectedMascotSkin] || `${base}mascot.jpg`;
+  const skin = getSkinById(profile.selectedMascotSkin);
+  const mascotSrc = skin.image ? `${base}${skin.image}` : `${base}mascot.jpg`;
 
   // Pop the mascot back in whenever a new message arrives
   useEffect(() => {
@@ -68,13 +64,30 @@ export const MascotAssistant: React.FC<MascotAssistantProps> = ({
         }}
         whileTap={{ scale: 0.9 }}
       >
-        <img
-          src={mascotSrc}
-          alt="Sudoku Maskottchen"
-          width={84}
-          height={84}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        />
+        {skin.emoji ? (
+          <span
+            aria-label="Sudoku Maskottchen"
+            role="img"
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '3rem',
+            }}
+          >
+            {skin.emoji}
+          </span>
+        ) : (
+          <img
+            src={mascotSrc}
+            alt="Sudoku Maskottchen"
+            width={84}
+            height={84}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        )}
       </motion.div>
 
       {/* Speech Bubble – re-animates on every new message */}

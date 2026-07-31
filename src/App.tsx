@@ -59,7 +59,7 @@ const MainAppContent: React.FC = () => {
 
   // Timer state
   const [timerSeconds, setTimerSeconds] = useState<number>(0);
-  const [victoryStats, setVictoryStats] = useState<{ xpGained: number; gemsGained: number; speedBonusGems: number } | null>(null);
+  const [victoryStats, setVictoryStats] = useState<{ xpGained: number; gemsGained: number; speedBonusGems: number; xpBoosted: boolean; streakFreezeUsed: boolean } | null>(null);
 
   const hasActiveGame = view === 'game' && !!state && !state.isGameOver && !showVictoryModal && !victoryWave;
 
@@ -121,6 +121,9 @@ const MainAppContent: React.FC = () => {
   };
 
   const handleVerify = () => {
+    // Guard: while the wave/modal is showing, a second tap on "Prüfen"
+    // must not grant the level rewards twice.
+    if (victoryWave || showVictoryModal) return;
     if (checkSolution()) {
       playVictoryFanfare();
       playWhoosh();
@@ -130,7 +133,7 @@ const MainAppContent: React.FC = () => {
       // Lock in the rewards immediately, but celebrate on the board first:
       // the victory wave lets all numbers jump diagonally from bottom-left
       // to top-right (16 diagonals * 45ms stagger + 620ms jump ≈ 1.35s).
-      const stats = completeLevel(playingLevel || 1, timerSeconds);
+      const stats = completeLevel(playingLevel || 1, timerSeconds, playingDifficulty);
       setVictoryStats(stats);
       setVictoryWave(true);
       if (victoryWaveTimeoutRef.current) clearTimeout(victoryWaveTimeoutRef.current);
@@ -354,6 +357,10 @@ const MainAppContent: React.FC = () => {
                 Level geschafft!
               </h2>
 
+              <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--duo-text-light)', margin: '0 0 4px 0' }}>
+                ⏱️ Gelöst in {Math.floor(timerSeconds / 60).toString().padStart(2, '0')}:{(timerSeconds % 60).toString().padStart(2, '0')}
+              </div>
+
               <div
                 style={{
                   display: 'flex',
@@ -383,6 +390,34 @@ const MainAppContent: React.FC = () => {
                     }}
                   >
                     ⏱️ ZEIT-BONUS: +{victoryStats.speedBonusGems} Edelsteine!
+                  </div>
+                )}
+                {victoryStats.xpBoosted && (
+                  <div
+                    style={{
+                      fontSize: '0.9rem',
+                      fontWeight: 800,
+                      color: 'var(--duo-purple)',
+                      backgroundColor: '#f3eaff',
+                      padding: '8px',
+                      borderRadius: '10px',
+                    }}
+                  >
+                    ⚡ XP-BOOST: Doppelte XP kassiert!
+                  </div>
+                )}
+                {victoryStats.streakFreezeUsed && (
+                  <div
+                    style={{
+                      fontSize: '0.9rem',
+                      fontWeight: 800,
+                      color: 'var(--duo-blue)',
+                      backgroundColor: '#e5f6ff',
+                      padding: '8px',
+                      borderRadius: '10px',
+                    }}
+                  >
+                    🛡️ Streak-Schutz hat deine Serie gerettet!
                   </div>
                 )}
               </div>

@@ -1,4 +1,5 @@
 import localforage from 'localforage';
+import { MASCOT_SKIN_IDS } from '../logic/skins';
 
 /**
  * Resilient persistence layer.
@@ -59,7 +60,7 @@ const sanitizeGameState = (raw: unknown): unknown | null => {
   const s = raw as Record<string, unknown>;
   if (!isValidBoard(s.board) || !isValidBoard(s.initialBoard)) return null;
   if (!Array.isArray(s.obfuscatedSolution) || s.obfuscatedSolution.length !== 9) return null;
-  if (typeof s.lives !== 'number' || s.lives < 0 || s.lives > 3) return null;
+  if (typeof s.lives !== 'number' || s.lives < 0 || s.lives > 4) return null;
   return s;
 };
 
@@ -86,7 +87,7 @@ export const clearGame = async (): Promise<void> => {
 // User profile
 // ---------------------------------------------------------------------------
 
-const MASCOT_SKINS = ['default', 'fox', 'king', 'ninja'] as const;
+const MASCOT_SKINS = MASCOT_SKIN_IDS;
 
 export interface UserProfile {
   xp: number;
@@ -99,7 +100,11 @@ export interface UserProfile {
   totalGamesPlayed: number;
   correctMoves: number;
   incorrectMoves: number;
-  selectedMascotSkin: (typeof MASCOT_SKINS)[number];
+  /** Number of levels ever completed (victories, incl. repeats). */
+  levelsCompleted: number;
+  /** Purchased 2x-XP boosts; one is consumed per completed level. */
+  xpBoostCharges: number;
+  selectedMascotSkin: string;
   unlockedSkins: string[];
 }
 
@@ -114,6 +119,8 @@ export const defaultProfile: UserProfile = {
   totalGamesPlayed: 0,
   correctMoves: 0,
   incorrectMoves: 0,
+  levelsCompleted: 0,
+  xpBoostCharges: 0,
   selectedMascotSkin: 'default',
   unlockedSkins: ['default'],
 };
@@ -138,12 +145,12 @@ const sanitizeProfile = (raw: unknown): UserProfile => {
   if (unlockedLevels.length === 0) unlockedLevels.push(1);
 
   const unlockedSkins = Array.isArray(p.unlockedSkins)
-    ? p.unlockedSkins.filter((s): s is string => typeof s === 'string' && (MASCOT_SKINS as readonly string[]).includes(s))
+    ? p.unlockedSkins.filter((s): s is string => typeof s === 'string' && MASCOT_SKINS.includes(s))
     : ['default'];
   if (!unlockedSkins.includes('default')) unlockedSkins.push('default');
 
-  const skin = MASCOT_SKINS.includes(p.selectedMascotSkin as (typeof MASCOT_SKINS)[number])
-    ? (p.selectedMascotSkin as UserProfile['selectedMascotSkin'])
+  const skin = typeof p.selectedMascotSkin === 'string' && MASCOT_SKINS.includes(p.selectedMascotSkin)
+    ? p.selectedMascotSkin
     : 'default';
 
   return {
@@ -157,6 +164,8 @@ const sanitizeProfile = (raw: unknown): UserProfile => {
     totalGamesPlayed: clampInt(p.totalGamesPlayed, 0, 1_000_000, 0),
     correctMoves: clampInt(p.correctMoves, 0, 10_000_000, 0),
     incorrectMoves: clampInt(p.incorrectMoves, 0, 10_000_000, 0),
+    levelsCompleted: clampInt(p.levelsCompleted, 0, 1_000_000, 0),
+    xpBoostCharges: clampInt(p.xpBoostCharges, 0, 99, 0),
     selectedMascotSkin: skin,
     unlockedSkins,
   };

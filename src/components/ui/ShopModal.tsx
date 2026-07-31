@@ -4,7 +4,8 @@ import { playPop, playVictoryFanfare } from '../../utils/soundEffects';
 import { hapticTap, hapticSuccess, hapticError } from '../../utils/haptics';
 import { useGame } from '../../store/GameContext';
 import { ModalShell } from './ModalShell';
-import { CartIcon, HeartIcon, BulbIcon, ShieldIcon, GemIcon } from './icons';
+import { CartIcon, HeartIcon, BulbIcon, ShieldIcon, GemIcon, BoltIcon } from './icons';
+import { MASCOT_SKINS } from '../../logic/skins';
 import '../../styles/duolingo.css';
 
 interface ShopModalProps {
@@ -39,12 +40,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose }) => {
   const { profile, buyShopItem, selectSkin, refillHearts, state } = useGame();
 
   const base = import.meta.env.BASE_URL;
-  const skins = [
-    { id: 'default', name: 'SudoBuddy', icon: `${base}mascot.jpg`, cost: 0, desc: 'Klassisches Maskottchen' },
-    { id: 'fox', name: 'Schlauer Fuchs', icon: `${base}mascot_fox.jpg`, cost: 300, desc: 'Mit scharfer Brille für Mathe-Genies' },
-    { id: 'king', name: 'König Sudo', icon: `${base}mascot_king.jpg`, cost: 500, desc: 'Königlicher Look mit goldener Krone' },
-    { id: 'ninja', name: 'Zahlen Ninja', icon: `${base}mascot_ninja.jpg`, cost: 750, desc: 'Lautlos & blitzschnell beim Lösen' },
-  ];
+  const skins = MASCOT_SKINS;
 
   const handleBuy = (itemId: string, cost: number, after?: () => void) => {
     if (buyShopItem(itemId, cost)) {
@@ -118,13 +114,13 @@ export const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose }) => {
                 <div>
                   <div style={{ fontWeight: 800, color: 'var(--duo-text-dark)' }}>Herzen auffüllen</div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--duo-text-light)', fontWeight: 600 }}>
-                    {state?.lives === 3 ? 'Leben sind voll' : `Aktuell: ${state?.lives ?? 3}/3 Herzen`}
+                    {(state?.lives ?? 3) >= 3 ? 'Leben sind voll' : `Aktuell: ${state?.lives ?? 3}/3 Herzen`}
                   </div>
                 </div>
               </div>
               <button
-                className={`btn-duo ${state?.lives === 3 || profile.gems < 50 ? 'btn-duo-disabled' : 'btn-duo-red'}`}
-                disabled={state?.lives === 3 || profile.gems < 50}
+                className={`btn-duo ${(state?.lives ?? 3) >= 3 || profile.gems < 50 ? 'btn-duo-disabled' : 'btn-duo-red'}`}
+                disabled={(state?.lives ?? 3) >= 3 || profile.gems < 50}
                 onClick={() => handleBuy('hearts', 50, refillHearts)}
                 style={{ padding: '8px 16px', fontSize: '0.85rem' }}
               >
@@ -177,6 +173,56 @@ export const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose }) => {
                 <GemIcon size={16} /> 150
               </button>
             </motion.div>
+
+            {/* Extra Heart */}
+            <motion.div style={itemCard} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.15, ease: [0.23, 1, 0.32, 1] }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={iconBadge('#ffe5f0', '#e64980')}>
+                  <HeartIcon size={24} />
+                </span>
+                <div>
+                  <div style={{ fontWeight: 800, color: 'var(--duo-text-dark)' }}>Extra-Herz</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--duo-text-light)', fontWeight: 600 }}>
+                    {!state || state.isGameOver
+                      ? 'Nur während eines laufenden Spiels'
+                      : state.lives >= 4
+                        ? 'Maximum erreicht (4/4)'
+                        : `+1 Leben für dieses Spiel (${state.lives}/4)`}
+                  </div>
+                </div>
+              </div>
+              <button
+                className={`btn-duo ${!state || state.isGameOver || state.lives >= 4 || profile.gems < 80 ? 'btn-duo-disabled' : 'btn-duo-red'}`}
+                disabled={!state || state.isGameOver || state.lives >= 4 || profile.gems < 80}
+                onClick={() => handleBuy('extraLife', 80)}
+                style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+              >
+                <GemIcon size={16} /> 80
+              </button>
+            </motion.div>
+
+            {/* XP Boost */}
+            <motion.div style={itemCard} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.2, ease: [0.23, 1, 0.32, 1] }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={iconBadge('#f3eaff', 'var(--duo-purple)')}>
+                  <BoltIcon size={24} />
+                </span>
+                <div>
+                  <div style={{ fontWeight: 800, color: 'var(--duo-text-dark)' }}>XP-Boost (2x)</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--duo-text-light)', fontWeight: 600 }}>
+                    Doppelte XP im nächsten Sieg ({profile.xpBoostCharges} aktiv)
+                  </div>
+                </div>
+              </div>
+              <button
+                className={`btn-duo ${profile.gems < 200 ? 'btn-duo-disabled' : 'btn-duo-purple'}`}
+                disabled={profile.gems < 200}
+                onClick={() => handleBuy('xpBoost', 200)}
+                style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+              >
+                <GemIcon size={16} /> 200
+              </button>
+            </motion.div>
           </div>
 
           {/* Skins Section */}
@@ -207,20 +253,40 @@ export const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose }) => {
                     transition: 'border-color 150ms var(--ease-out), background-color 150ms var(--ease-out)',
                   }}
                 >
-                  <img
-                    src={skin.icon}
-                    alt={skin.name}
-                    width={64}
-                    height={64}
-                    style={{
-                      width: '64px',
-                      height: '64px',
-                      borderRadius: '50%',
-                      objectFit: 'cover',
-                      border: '2px solid var(--duo-gray)',
-                      marginBottom: '8px',
-                    }}
-                  />
+                  {skin.emoji ? (
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        width: '64px',
+                        height: '64px',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '2.4rem',
+                        backgroundColor: 'var(--duo-bg-light)',
+                        border: '2px solid var(--duo-gray)',
+                        marginBottom: '8px',
+                      }}
+                    >
+                      {skin.emoji}
+                    </span>
+                  ) : (
+                    <img
+                      src={`${base}${skin.image}`}
+                      alt={skin.name}
+                      width={64}
+                      height={64}
+                      style={{
+                        width: '64px',
+                        height: '64px',
+                        borderRadius: '50%',
+                        objectFit: 'cover',
+                        border: '2px solid var(--duo-gray)',
+                        marginBottom: '8px',
+                      }}
+                    />
+                  )}
                   <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--duo-text-dark)', textAlign: 'center' }}>
                     {skin.name}
                   </div>
@@ -238,7 +304,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose }) => {
                       onClick={() => {
                         playPop();
                         hapticTap();
-                        selectSkin(skin.id as 'default' | 'fox' | 'king' | 'ninja');
+                        selectSkin(skin.id);
                       }}
                       style={{ padding: '6px 14px', fontSize: '0.78rem' }}
                     >
@@ -250,7 +316,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose }) => {
                       disabled={profile.gems < skin.cost}
                       onClick={() =>
                         handleBuy(`skin_${skin.id}`, skin.cost, () =>
-                          selectSkin(skin.id as 'default' | 'fox' | 'king' | 'ninja')
+                          selectSkin(skin.id)
                         )
                       }
                       style={{ padding: '6px 14px', fontSize: '0.78rem' }}

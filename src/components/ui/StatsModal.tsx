@@ -4,7 +4,7 @@ import { useGame } from '../../store/GameContext';
 import { playPop } from '../../utils/soundEffects';
 import { hapticTap } from '../../utils/haptics';
 import { ModalShell } from './ModalShell';
-import { BoltIcon, FlameIcon, TrophyIcon, CheckIcon } from './icons';
+import { BoltIcon, FlameIcon, TrophyIcon, CheckIcon, StarIcon } from './icons';
 import '../../styles/duolingo.css';
 
 interface StatsModalProps {
@@ -38,6 +38,9 @@ export const StatsModal: React.FC<StatsModalProps> = ({ onClose }) => {
         <StatBox icon={<FlameIcon size={26} />} label="Tages-Streak" value={`${profile.streak} Tage`} color="var(--duo-red)" delay={0.05} />
         <StatBox icon={<TrophyIcon size={26} />} label="Spiele Gestartet" value={`${profile.totalGamesPlayed || 0}`} color="var(--duo-purple)" delay={0.1} />
         <StatBox icon={<CheckIcon size={26} />} label="Genauigkeit" value={`${accuracy}%`} color="var(--duo-green)" delay={0.15} />
+        <div style={{ gridColumn: '1 / -1' }}>
+          <StatBox icon={<StarIcon size={26} />} label="Level geschafft" value={`${profile.levelsCompleted || 0}`} color="var(--duo-blue)" delay={0.2} />
+        </div>
       </div>
 
       <div

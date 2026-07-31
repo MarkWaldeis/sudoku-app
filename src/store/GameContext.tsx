@@ -36,10 +36,10 @@ interface GameContextProps {
   redo: () => void;
   checkSolution: () => boolean;
   profile: UserProfile;
-  completeLevel: (levelId: number, elapsedTimeSeconds?: number) => { xpGained: number; gemsGained: number; speedBonusGems: number };
+  completeLevel: (levelId: number, elapsedTimeSeconds?: number, difficulty?: Difficulty) => { xpGained: number; gemsGained: number; speedBonusGems: number; xpBoosted: boolean; streakFreezeUsed: boolean };
   useHint: (selectedCell?: { r: number; c: number } | null) => boolean;
   buyShopItem: (itemId: string, cost: number) => boolean;
-  selectSkin: (skinId: 'default' | 'fox' | 'king' | 'ninja') => void;
+  selectSkin: (skinId: string) => void;
   refillHearts: () => void;
 }
 
@@ -304,15 +304,21 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const buyShopItem = (itemId: string, cost: number): boolean => {
     if (profile.gems < cost) return false;
 
+    // Extra heart: only meaningful during an active, not-yet-lost game below the cap
+    if (itemId === 'extraLife' && (!state || state.isGameOver || state.lives >= 4)) return false;
+
     setProfile(p => {
       let newHints = p.hints;
       let newStreakFreeze = p.streakFreeze;
+      let newXpBoostCharges = p.xpBoostCharges;
       const newUnlockedSkins = [...p.unlockedSkins];
 
       if (itemId === 'hints') {
         newHints += 3;
       } else if (itemId === 'streakFreeze') {
         newStreakFreeze += 1;
+      } else if (itemId === 'xpBoost') {
+        newXpBoostCharges += 1;
       } else if (itemId.startsWith('skin_')) {
         const skinId = itemId.replace('skin_', '');
         if (!newUnlockedSkins.includes(skinId)) {
@@ -325,14 +331,19 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         gems: p.gems - cost,
         hints: newHints,
         streakFreeze: newStreakFreeze,
+        xpBoostCharges: newXpBoostCharges,
         unlockedSkins: newUnlockedSkins
       };
     });
 
+    if (itemId === 'extraLife') {
+      setState(prev => (prev ? { ...prev, lives: Math.min(4, prev.lives + 1) } : prev));
+    }
+
     return true;
   };
 
-  const selectSkin = (skinId: 'default' | 'fox' | 'king' | 'ninja') => {
+  const selectSkin = (skinId: string) => {
     setProfile(p => ({
       ...p,
       selectedMascotSkin: skinId
@@ -397,9 +408,11 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return true;
   };
 
-  const completeLevel = (levelId: number, elapsedTimeSeconds: number = 0) => {
+  const completeLevel = (levelId: number, elapsedTimeSeconds: number = 0, playedDifficulty?: Difficulty) => {
     const levelConfig = campaignLevels.find(l => l.id === levelId);
-    const difficulty = levelConfig?.difficulty || 'easy';
+    // The extreme mode has no campaign entry (level 99), so the difficulty
+    // played must be passed in – otherwise extreme runs silently paid easy rewards.
+    const difficulty = playedDifficulty ?? levelConfig?.difficulty ?? 'easy';
     let baseXp = levelConfig ? levelConfig.xpReward : 100;
     let baseGems = 25;
 
@@ -428,8 +441,17 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     }
 
-    const totalXp = baseXp + speedBonusXp;
+    // A purchased 2x-XP boost doubles this level's XP and is consumed
+    const xpBoosted = profile.xpBoostCharges > 0;
+    const totalXp = (baseXp + speedBonusXp) * (xpBoosted ? 2 : 1);
     const totalGems = baseGems + speedBonusGems;
+
+    // Compute streak outcome synchronously so the returned flag is reliable
+    const today = new Date().toDateString();
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const missedDay = profile.lastPlayedDate !== today && profile.lastPlayedDate !== yesterdayDate.toDateString();
+    const streakFreezeUsed = missedDay && profile.streak > 0 && profile.streakFreeze > 0;
 
     setProfile(p => {
       // Nur Kampagnen-Level (1-20) schalten das naechste Level frei;
@@ -439,13 +461,15 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           ? [...p.unlockedLevels, levelId + 1]
           : p.unlockedLevels;
 
-      const today = new Date().toDateString();
       let newStreak = p.streak;
+      let newStreakFreeze = p.streakFreeze;
       if (p.lastPlayedDate !== today) {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        if (p.lastPlayedDate === yesterday.toDateString()) {
+        if (p.lastPlayedDate === yesterdayDate.toDateString()) {
           newStreak += 1;
+        } else if (p.streak > 0 && p.streakFreeze > 0) {
+          // Missed at least one day: a purchased streak freeze saves the streak
+          newStreak += 1;
+          newStreakFreeze -= 1;
         } else {
           newStreak = 1;
         }
@@ -457,11 +481,14 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         gems: p.gems + totalGems,
         unlockedLevels: newUnlocked,
         streak: newStreak,
-        lastPlayedDate: today
+        streakFreeze: newStreakFreeze,
+        lastPlayedDate: today,
+        levelsCompleted: (p.levelsCompleted || 0) + 1,
+        xpBoostCharges: xpBoosted ? p.xpBoostCharges - 1 : p.xpBoostCharges
       };
     });
 
-    return { xpGained: totalXp, gemsGained: totalGems, speedBonusGems };
+    return { xpGained: totalXp, gemsGained: totalGems, speedBonusGems, xpBoosted, streakFreezeUsed };
   };
 
   const contextValue = useMemo(() => ({

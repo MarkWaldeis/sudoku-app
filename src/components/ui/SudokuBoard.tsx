@@ -92,7 +92,7 @@ export const SudokuBoard: React.FC<{ victoryWave?: boolean }> = ({ victoryWave =
 
   const handleNumberInput = useCallback(
     (num: number) => {
-      if (!selectedCell || !state || state.isGameOver) return;
+      if (!selectedCell || !state || state.isGameOver || victoryWave) return;
       const { r, c } = selectedCell;
       if (isNotesMode) {
         playPop();
@@ -112,16 +112,16 @@ export const SudokuBoard: React.FC<{ victoryWave?: boolean }> = ({ victoryWave =
         }
       }
     },
-    [selectedCell, state, isNotesMode, togglePencilMark, makeMove]
+    [selectedCell, state, isNotesMode, togglePencilMark, makeMove, victoryWave]
   );
 
   const handleErase = useCallback(() => {
-    if (selectedCell && !isNotesMode && state && !state.isGameOver) {
+    if (selectedCell && !isNotesMode && state && !state.isGameOver && !victoryWave) {
       playPop();
       hapticTap();
       makeMove(selectedCell.r, selectedCell.c, null);
     }
-  }, [selectedCell, isNotesMode, state, makeMove]);
+  }, [selectedCell, isNotesMode, state, makeMove, victoryWave]);
 
   // Keyboard support: digits, erase, notes toggle, hint, arrows, escape
   useEffect(() => {
@@ -135,7 +135,7 @@ export const SudokuBoard: React.FC<{ victoryWave?: boolean }> = ({ victoryWave =
         playPop();
         setIsNotesMode((prev) => !prev);
       } else if (e.key === 'h' || e.key === 'H') {
-        if (requestHint(selectedCell)) {
+        if (!victoryWave && requestHint(selectedCell)) {
           playSuccessChime();
           hapticSuccess();
         }
@@ -161,7 +161,7 @@ export const SudokuBoard: React.FC<{ victoryWave?: boolean }> = ({ victoryWave =
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state, selectedCell, isNotesMode, makeMove, handleNumberInput, handleErase, requestHint]);
+  }, [state, selectedCell, isNotesMode, makeMove, handleNumberInput, handleErase, requestHint, victoryWave]);
 
   const selectedValue =
     state && selectedCell && state.board[selectedCell.r][selectedCell.c] !== null
@@ -439,6 +439,7 @@ export const SudokuBoard: React.FC<{ victoryWave?: boolean }> = ({ victoryWave =
         </button>
         <button
           onClick={() => {
+            if (victoryWave) return;
             if (requestHint(selectedCell)) {
               playSuccessChime();
               hapticSuccess();
