@@ -1,9 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { generateSudoku, type Board, type Difficulty } from '../logic/sudokuGenerator';
 import { campaignLevels } from '../logic/campaignLevels';
 import { saveGame, loadGame, loadProfile, saveProfile, type UserProfile, defaultProfile } from './storage';
 
 type PencilMarks = { [key: string]: number[] };
+
+/** Upper bound for the undo history so long sessions cannot grow memory unbounded. */
+const MAX_HISTORY = 200;
 
 interface GameState {
   board: Board;
@@ -18,10 +21,14 @@ interface GameState {
   lastMoveTime: number | null;
   startTime: number;
   hintedCell: { r: number; c: number } | null;
+  /** Result of the most recent move, used for visual/haptic/mascot feedback. */
+  lastMoveResult: { kind: 'correct' | 'wrong'; at: number } | null;
 }
 
 interface GameContextProps {
   state: GameState;
+  /** Solution decoded exactly once per game (memoized) – never recompute per render. */
+  solution: Board | null;
   startNewGame: (difficulty: Difficulty) => void;
   makeMove: (row: number, col: number, val: number | null) => boolean | null;
   togglePencilMark: (row: number, col: number, val: number) => void;
@@ -40,20 +47,37 @@ const GameContext = createContext<GameContextProps | undefined>(undefined);
 
 // Simple obfuscation to prevent plain-text reading in DevTools
 const obfuscateSolution = (solution: Board): string[] => {
-  return solution.map(row => 
+  return solution.map(row =>
     btoa(row.map(val => (val !== null ? (val * 7).toString() : '')).join('-'))
   );
 };
 
-export const deobfuscateSolution = (obfuscated: string[]): Board => {
-  return obfuscated.map(row => 
+const deobfuscateSolution = (obfuscated: string[]): Board => {
+  return obfuscated.map(row =>
     atob(row).split('-').map(val => (val ? parseInt(val) / 7 : null))
   );
+};
+
+/** Push a new history entry, dropping the oldest entries beyond MAX_HISTORY. */
+const pushHistory = (
+  history: { board: Board; pencilMarks: PencilMarks }[],
+  historyIndex: number,
+  entry: { board: Board; pencilMarks: PencilMarks }
+): { history: { board: Board; pencilMarks: PencilMarks }[]; historyIndex: number } => {
+  let next = history.slice(0, historyIndex + 1);
+  next.push(entry);
+  let nextIndex = next.length - 1;
+  if (next.length > MAX_HISTORY) {
+    next = next.slice(next.length - MAX_HISTORY);
+    nextIndex = next.length - 1;
+  }
+  return { history: next, historyIndex: nextIndex };
 };
 
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, setState] = useState<GameState | null>(null);
   const [profile, setProfile] = useState<UserProfile>(defaultProfile);
+  const hintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     loadGame().then(saved => {
@@ -61,10 +85,14 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setState(saved as GameState);
       }
     });
-    
+
     loadProfile().then(savedProfile => {
       setProfile(savedProfile);
     });
+
+    return () => {
+      if (hintTimeoutRef.current) clearTimeout(hintTimeoutRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -77,21 +105,39 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     saveProfile(profile);
   }, [profile]);
 
+  /**
+   * The solution is decoded exactly once per game instead of on every render
+   * (previously every cell render re-ran base64 decoding for all 81 cells).
+   */
+  const solution = useMemo<Board | null>(() => {
+    if (!state?.obfuscatedSolution) return null;
+    try {
+      return deobfuscateSolution(state.obfuscatedSolution);
+    } catch {
+      return null; // corrupted save data – fail closed, never crash
+    }
+  }, [state?.obfuscatedSolution]);
+
   const startNewGame = (difficulty: Difficulty) => {
-    const { puzzle, solution } = generateSudoku(difficulty);
+    if (hintTimeoutRef.current) {
+      clearTimeout(hintTimeoutRef.current);
+      hintTimeoutRef.current = null;
+    }
+    const { puzzle, solution: newSolution } = generateSudoku(difficulty);
     const newState: GameState = {
       board: puzzle,
       initialBoard: puzzle.map(r => [...r]),
       pencilMarks: {},
       history: [{ board: puzzle, pencilMarks: {} }],
       historyIndex: 0,
-      obfuscatedSolution: obfuscateSolution(solution),
+      obfuscatedSolution: obfuscateSolution(newSolution),
       lives: 3,
       isGameOver: false,
       comboCount: 0,
       lastMoveTime: null,
       startTime: Date.now(),
-      hintedCell: null
+      hintedCell: null,
+      lastMoveResult: null
     };
     setState(newState);
     setProfile(p => ({
@@ -103,28 +149,27 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updateStateAndHistory = (newBoard: Board, newPencilMarks: PencilMarks) => {
     setState(prev => {
       if (!prev) return prev;
-      const newHistory = prev.history.slice(0, prev.historyIndex + 1);
-      newHistory.push({ board: newBoard, pencilMarks: newPencilMarks });
+      const { history, historyIndex } = pushHistory(prev.history, prev.historyIndex, {
+        board: newBoard,
+        pencilMarks: newPencilMarks
+      });
       return {
         ...prev,
         board: newBoard,
         pencilMarks: newPencilMarks,
-        history: newHistory,
-        historyIndex: newHistory.length - 1
+        history,
+        historyIndex
       };
     });
   };
 
   const makeMove = (row: number, col: number, val: number | null): boolean | null => {
-    if (!state || state.initialBoard[row][col] !== null || state.isGameOver) return null;
+    if (!state || !solution || state.initialBoard[row][col] !== null || state.isGameOver) return null;
     if (state.board[row][col] === val) return null;
 
     let isCorrect = true;
-    if (val !== null) {
-      const realSolution = deobfuscateSolution(state.obfuscatedSolution);
-      if (val !== realSolution[row][col]) {
-        isCorrect = false;
-      }
+    if (val !== null && val !== solution[row][col]) {
+      isCorrect = false;
     }
 
     const newBoard = state.board.map(r => [...r]);
@@ -132,13 +177,15 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     setState(prev => {
       if (!prev) return prev;
-      const newHistory = prev.history.slice(0, prev.historyIndex + 1);
-      newHistory.push({ board: newBoard, pencilMarks: prev.pencilMarks });
-      
+      const { history, historyIndex } = pushHistory(prev.history, prev.historyIndex, {
+        board: newBoard,
+        pencilMarks: prev.pencilMarks
+      });
+
       let newLives = prev.lives;
       let newIsGameOver = prev.isGameOver;
       let newComboCount = prev.comboCount;
-      let newLastMoveTime = Date.now();
+      const newLastMoveTime = Date.now();
 
       if (val !== null) {
         if (!isCorrect) {
@@ -155,10 +202,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           } else {
             newComboCount = 1;
           }
-          
+
           const xpGained = 10 + (newComboCount > 1 ? 5 : 0);
-          setProfile(p => ({ 
-            ...p, 
+          setProfile(p => ({
+            ...p,
             xp: p.xp + xpGained,
             gems: p.gems + 1, // 1 gem per correct move
             correctMoves: (p.correctMoves || 0) + 1
@@ -169,12 +216,13 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return {
         ...prev,
         board: newBoard,
-        history: newHistory,
-        historyIndex: newHistory.length - 1,
+        history,
+        historyIndex,
         lives: newLives,
         isGameOver: newIsGameOver,
         comboCount: newComboCount,
-        lastMoveTime: newLastMoveTime
+        lastMoveTime: newLastMoveTime,
+        lastMoveResult: val === null ? prev.lastMoveResult : { kind: isCorrect ? 'correct' : 'wrong', at: newLastMoveTime }
       };
     });
 
@@ -183,7 +231,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const useHint = (selectedCell?: { r: number; c: number } | null): boolean => {
-    if (!state || state.isGameOver) return false;
+    if (!state || !solution || state.isGameOver) return false;
 
     // Check if player has hints or gems
     const hasFreeHint = profile.hints > 0;
@@ -191,14 +239,12 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     if (!hasFreeHint && !hasGems) return false;
 
-    const realSolution = deobfuscateSolution(state.obfuscatedSolution);
-
     // Find target cell
     let targetR = -1;
     let targetC = -1;
 
     if (selectedCell && state.initialBoard[selectedCell.r][selectedCell.c] === null) {
-      if (state.board[selectedCell.r][selectedCell.c] !== realSolution[selectedCell.r][selectedCell.c]) {
+      if (state.board[selectedCell.r][selectedCell.c] !== solution[selectedCell.r][selectedCell.c]) {
         targetR = selectedCell.r;
         targetC = selectedCell.c;
       }
@@ -207,7 +253,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (targetR === -1) {
       for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
-          if (state.initialBoard[r][c] === null && state.board[r][c] !== realSolution[r][c]) {
+          if (state.initialBoard[r][c] === null && state.board[r][c] !== solution[r][c]) {
             targetR = r;
             targetC = c;
             break;
@@ -219,7 +265,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     if (targetR === -1) return false; // Board is full/solved
 
-    const correctValue = realSolution[targetR][targetC]!;
+    const correctValue = solution[targetR][targetC]!;
     const newBoard = state.board.map(r => [...r]);
     newBoard[targetR][targetC] = correctValue;
 
@@ -232,19 +278,23 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     setState(prev => {
       if (!prev) return prev;
-      const newHistory = prev.history.slice(0, prev.historyIndex + 1);
-      newHistory.push({ board: newBoard, pencilMarks: prev.pencilMarks });
+      const { history, historyIndex } = pushHistory(prev.history, prev.historyIndex, {
+        board: newBoard,
+        pencilMarks: prev.pencilMarks
+      });
       return {
         ...prev,
         board: newBoard,
-        history: newHistory,
-        historyIndex: newHistory.length - 1,
+        history,
+        historyIndex,
         hintedCell: { r: targetR, c: targetC }
       };
     });
 
-    // Clear hint animation highlight after 2.5s
-    setTimeout(() => {
+    // Clear hint animation highlight after 2.5s (tracked so it can never dangle)
+    if (hintTimeoutRef.current) clearTimeout(hintTimeoutRef.current);
+    hintTimeoutRef.current = setTimeout(() => {
+      hintTimeoutRef.current = null;
       setState(prev => prev ? ({ ...prev, hintedCell: null }) : null);
     }, 2500);
 
@@ -257,7 +307,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setProfile(p => {
       let newHints = p.hints;
       let newStreakFreeze = p.streakFreeze;
-      let newUnlockedSkins = [...p.unlockedSkins];
+      const newUnlockedSkins = [...p.unlockedSkins];
 
       if (itemId === 'hints') {
         newHints += 3;
@@ -298,7 +348,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const key = `${row}-${col}`;
     const newPencilMarks = { ...state.pencilMarks };
     const marks = newPencilMarks[key] || [];
-    
+
     if (marks.includes(val)) {
       newPencilMarks[key] = marks.filter(m => m !== val);
     } else {
@@ -336,11 +386,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const checkSolution = () => {
-    if (!state) return false;
-    const realSolution = deobfuscateSolution(state.obfuscatedSolution);
+    if (!state || !solution) return false;
     for (let r = 0; r < 9; r++) {
       for (let c = 0; c < 9; c++) {
-        if (state.board[r][c] !== realSolution[r][c]) {
+        if (state.board[r][c] !== solution[r][c]) {
           return false;
         }
       }
@@ -383,8 +432,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const totalGems = baseGems + speedBonusGems;
 
     setProfile(p => {
-      const newUnlocked = p.unlockedLevels.includes(levelId + 1) 
-        ? p.unlockedLevels 
+      const newUnlocked = p.unlockedLevels.includes(levelId + 1)
+        ? p.unlockedLevels
         : [...p.unlockedLevels, levelId + 1];
 
       const today = new Date().toDateString();
@@ -414,6 +463,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const contextValue = useMemo(() => ({
     state: state!,
+    solution,
     startNewGame,
     makeMove,
     togglePencilMark,
@@ -426,7 +476,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     buyShopItem,
     selectSkin,
     refillHearts
-  }), [state, profile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [state, solution, profile]);
 
   return (
     <GameContext.Provider value={contextValue}>

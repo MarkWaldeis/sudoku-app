@@ -1,98 +1,123 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { playPop, playVictoryFanfare } from '../../utils/soundEffects';
-import '../../styles/duolingo.css';
+import { hapticTap, hapticSuccess, hapticError } from '../../utils/haptics';
 import { useGame } from '../../store/GameContext';
+import { ModalShell } from './ModalShell';
+import { CartIcon, HeartIcon, BulbIcon, ShieldIcon, GemIcon } from './icons';
+import '../../styles/duolingo.css';
 
 interface ShopModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+const itemCard: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: '12px',
+  padding: '14px',
+  borderRadius: '16px',
+  backgroundColor: 'var(--duo-bg-light)',
+  border: '2px solid var(--duo-gray)',
+};
+
+const iconBadge = (bg: string, color: string): React.CSSProperties => ({
+  width: '48px',
+  height: '48px',
+  borderRadius: '14px',
+  backgroundColor: bg,
+  color,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexShrink: 0,
+});
+
 export const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose }) => {
   const { profile, buyShopItem, selectSkin, refillHearts, state } = useGame();
 
-  if (!isOpen) return null;
-
+  const base = import.meta.env.BASE_URL;
   const skins = [
-    { id: 'default', name: 'SudoBuddy', icon: '/mascot.jpg', cost: 0, desc: 'Klassisches Maskottchen' },
-    { id: 'fox', name: 'Schlauer Fuchs', icon: '/mascot_fox.jpg', cost: 300, desc: 'Mit scharfer Brille für Mathe-Genies' },
-    { id: 'king', name: 'König Sudo', icon: '/mascot_king.jpg', cost: 500, desc: 'Königlicher Look mit goldener Krone' },
-    { id: 'ninja', name: 'Zahlen Ninja', icon: '/mascot_ninja.jpg', cost: 750, desc: 'Lautlos & blitzschnell beim Lösen' },
+    { id: 'default', name: 'SudoBuddy', icon: `${base}mascot.jpg`, cost: 0, desc: 'Klassisches Maskottchen' },
+    { id: 'fox', name: 'Schlauer Fuchs', icon: `${base}mascot_fox.jpg`, cost: 300, desc: 'Mit scharfer Brille für Mathe-Genies' },
+    { id: 'king', name: 'König Sudo', icon: `${base}mascot_king.jpg`, cost: 500, desc: 'Königlicher Look mit goldener Krone' },
+    { id: 'ninja', name: 'Zahlen Ninja', icon: `${base}mascot_ninja.jpg`, cost: 750, desc: 'Lautlos & blitzschnell beim Lösen' },
   ];
+
+  const handleBuy = (itemId: string, cost: number, after?: () => void) => {
+    if (buyShopItem(itemId, cost)) {
+      playVictoryFanfare();
+      hapticSuccess();
+      after?.();
+    } else {
+      playPop();
+      hapticError();
+    }
+  };
 
   return (
     <AnimatePresence>
-      <div style={{
-        position: 'fixed',
-        top: 0, left: 0, right: 0, bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 2000,
-        padding: '16px'
-      }}>
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.8, opacity: 0 }}
-          style={{
-            backgroundColor: 'white',
-            borderRadius: '24px',
-            padding: '24px',
-            width: '100%',
-            maxWidth: '480px',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            boxShadow: '0 12px 32px rgba(0,0,0,0.2)',
-            border: '4px solid var(--duo-gray)',
-            fontFamily: "'Nunito', sans-serif"
-          }}
-        >
+      {isOpen && (
+        <ModalShell onClose={onClose} maxWidth={480}>
           {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h2 style={{ margin: 0, color: 'var(--duo-text-dark)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.5rem' }}>
-              🛒 Duolingo Shop
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: '12px', paddingRight: '40px' }}>
+            <h2
+              style={{
+                margin: 0,
+                color: 'var(--duo-text-dark)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                fontSize: '1.4rem',
+                fontWeight: 900,
+              }}
+            >
+              <span style={{ color: 'var(--duo-yellow-shadow)', display: 'inline-flex' }}>
+                <CartIcon size={26} />
+              </span>
+              Shop
             </h2>
-            <div style={{
-              backgroundColor: '#fff4cc',
-              padding: '6px 14px',
-              borderRadius: '20px',
-              border: '2px solid var(--duo-yellow-shadow)',
-              fontWeight: 800,
-              color: '#d48800',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}>
-              💎 {profile.gems} Edelsteine
+            <div
+              style={{
+                backgroundColor: '#fff4cc',
+                padding: '8px 14px',
+                borderRadius: '20px',
+                border: '2px solid var(--duo-yellow-shadow)',
+                fontWeight: 800,
+                color: '#d48800',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                minHeight: '36px',
+              }}
+              aria-label={`${profile.gems} Edelsteine`}
+            >
+              <GemIcon size={18} />
+              {profile.gems}
             </div>
           </div>
 
-          <p style={{ color: 'var(--duo-text-light)', margin: '0 0 20px 0', fontSize: '0.9rem' }}>
+          <p style={{ color: 'var(--duo-text-light)', margin: '0 0 16px 0', fontSize: '0.9rem', fontWeight: 600 }}>
             Löse Sudokus schnell, halte deine Streak und verdiene Edelsteine für Power-Ups & Skins!
           </p>
 
           {/* Power-Ups Section */}
-          <h3 style={{ margin: '16px 0 12px 0', color: 'var(--duo-text-dark)', fontSize: '1.1rem' }}>⚡ Power-Ups</h3>
+          <h3 style={{ margin: '16px 0 12px 0', color: 'var(--duo-text-dark)', fontSize: '1.05rem', fontWeight: 900 }}>
+            Power-Ups
+          </h3>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
             {/* Hearts Refill */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '14px',
-              borderRadius: '16px',
-              backgroundColor: 'var(--duo-bg-light)',
-              border: '2px solid var(--duo-gray)'
-            }}>
+            <motion.div style={itemCard} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '2rem' }}>❤️</span>
+                <span style={iconBadge('#ffe5e5', 'var(--duo-red)')}>
+                  <HeartIcon size={24} />
+                </span>
                 <div>
                   <div style={{ fontWeight: 800, color: 'var(--duo-text-dark)' }}>Herzen auffüllen</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--duo-text-light)' }}>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--duo-text-light)', fontWeight: 600 }}>
                     {state?.lives === 3 ? 'Leben sind voll' : `Aktuell: ${state?.lives ?? 3}/3 Herzen`}
                   </div>
                 </div>
@@ -100,33 +125,22 @@ export const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose }) => {
               <button
                 className={`btn-duo ${state?.lives === 3 || profile.gems < 50 ? 'btn-duo-disabled' : 'btn-duo-red'}`}
                 disabled={state?.lives === 3 || profile.gems < 50}
-                onClick={() => {
-                  if (buyShopItem('hearts', 50)) {
-                    refillHearts();
-                    playVictoryFanfare();
-                  }
-                }}
+                onClick={() => handleBuy('hearts', 50, refillHearts)}
                 style={{ padding: '8px 16px', fontSize: '0.85rem' }}
               >
-                💎 50
+                <GemIcon size={16} /> 50
               </button>
-            </div>
+            </motion.div>
 
             {/* Hint Pack */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '14px',
-              borderRadius: '16px',
-              backgroundColor: 'var(--duo-bg-light)',
-              border: '2px solid var(--duo-gray)'
-            }}>
+            <motion.div style={itemCard} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.05, ease: [0.23, 1, 0.32, 1] }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '2rem' }}>💡</span>
+                <span style={iconBadge('#fff4cc', '#d48800')}>
+                  <BulbIcon size={24} />
+                </span>
                 <div>
                   <div style={{ fontWeight: 800, color: 'var(--duo-text-dark)' }}>3x Tipps</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--duo-text-light)' }}>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--duo-text-light)', fontWeight: 600 }}>
                     Aktuell: {profile.hints} Tipps übrig
                   </div>
                 </div>
@@ -134,32 +148,22 @@ export const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose }) => {
               <button
                 className={`btn-duo ${profile.gems < 100 ? 'btn-duo-disabled' : 'btn-duo-yellow'}`}
                 disabled={profile.gems < 100}
-                onClick={() => {
-                  if (buyShopItem('hints', 100)) {
-                    playVictoryFanfare();
-                  }
-                }}
+                onClick={() => handleBuy('hints', 100)}
                 style={{ padding: '8px 16px', fontSize: '0.85rem' }}
               >
-                💎 100
+                <GemIcon size={16} /> 100
               </button>
-            </div>
+            </motion.div>
 
             {/* Streak Freeze */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '14px',
-              borderRadius: '16px',
-              backgroundColor: 'var(--duo-bg-light)',
-              border: '2px solid var(--duo-gray)'
-            }}>
+            <motion.div style={itemCard} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1, ease: [0.23, 1, 0.32, 1] }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '2rem' }}>🛡️</span>
+                <span style={iconBadge('#e5f6ff', 'var(--duo-blue)')}>
+                  <ShieldIcon size={24} />
+                </span>
                 <div>
                   <div style={{ fontWeight: 800, color: 'var(--duo-text-dark)' }}>Streak-Schutz</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--duo-text-light)' }}>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--duo-text-light)', fontWeight: 600 }}>
                     Schützt deine Serie für 1 verpassten Tag ({profile.streakFreeze} aktiv)
                   </div>
                 </div>
@@ -167,29 +171,30 @@ export const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose }) => {
               <button
                 className={`btn-duo ${profile.gems < 150 ? 'btn-duo-disabled' : 'btn-duo-blue'}`}
                 disabled={profile.gems < 150}
-                onClick={() => {
-                  if (buyShopItem('streakFreeze', 150)) {
-                    playVictoryFanfare();
-                  }
-                }}
+                onClick={() => handleBuy('streakFreeze', 150)}
                 style={{ padding: '8px 16px', fontSize: '0.85rem' }}
               >
-                💎 150
+                <GemIcon size={16} /> 150
               </button>
-            </div>
+            </motion.div>
           </div>
 
           {/* Skins Section */}
-          <h3 style={{ margin: '16px 0 12px 0', color: 'var(--duo-text-dark)', fontSize: '1.1rem' }}>🎭 Maskottchen-Skins</h3>
+          <h3 style={{ margin: '16px 0 12px 0', color: 'var(--duo-text-dark)', fontSize: '1.05rem', fontWeight: 900 }}>
+            Maskottchen-Skins
+          </h3>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
-            {skins.map(skin => {
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '8px' }}>
+            {skins.map((skin, i) => {
               const isUnlocked = profile.unlockedSkins.includes(skin.id);
               const isEquipped = profile.selectedMascotSkin === skin.id;
 
               return (
-                <div
+                <motion.div
                   key={skin.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, delay: 0.12 + i * 0.04, ease: [0.23, 1, 0.32, 1] }}
                   style={{
                     border: isEquipped ? '3px solid var(--duo-green)' : '2px solid var(--duo-gray)',
                     borderRadius: '16px',
@@ -198,30 +203,33 @@ export const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose }) => {
                     flexDirection: 'column',
                     alignItems: 'center',
                     backgroundColor: isEquipped ? '#eefbdf' : 'white',
-                    position: 'relative'
+                    position: 'relative',
+                    transition: 'border-color 150ms var(--ease-out), background-color 150ms var(--ease-out)',
                   }}
                 >
                   <img
                     src={skin.icon}
                     alt={skin.name}
+                    width={64}
+                    height={64}
                     style={{
                       width: '64px',
                       height: '64px',
                       borderRadius: '50%',
                       objectFit: 'cover',
                       border: '2px solid var(--duo-gray)',
-                      marginBottom: '8px'
+                      marginBottom: '8px',
                     }}
                   />
                   <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--duo-text-dark)', textAlign: 'center' }}>
                     {skin.name}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--duo-text-light)', textAlign: 'center', margin: '4px 0 8px 0', height: '28px' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--duo-text-light)', textAlign: 'center', margin: '4px 0 8px 0', minHeight: '28px', fontWeight: 600 }}>
                     {skin.desc}
                   </div>
 
                   {isEquipped ? (
-                    <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--duo-green)' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--duo-green)', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>
                       ✓ Ausgerüstet
                     </span>
                   ) : isUnlocked ? (
@@ -229,9 +237,10 @@ export const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose }) => {
                       className="btn-duo"
                       onClick={() => {
                         playPop();
-                        selectSkin(skin.id as any);
+                        hapticTap();
+                        selectSkin(skin.id as 'default' | 'fox' | 'king' | 'ninja');
                       }}
-                      style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+                      style={{ padding: '6px 14px', fontSize: '0.78rem' }}
                     >
                       Ausrüsten
                     </button>
@@ -239,35 +248,22 @@ export const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose }) => {
                     <button
                       className={`btn-duo ${profile.gems < skin.cost ? 'btn-duo-disabled' : 'btn-duo-purple'}`}
                       disabled={profile.gems < skin.cost}
-                      onClick={() => {
-                        if (buyShopItem(`skin_${skin.id}`, skin.cost)) {
-                          selectSkin(skin.id as any);
-                          playVictoryFanfare();
-                        }
-                      }}
-                      style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+                      onClick={() =>
+                        handleBuy(`skin_${skin.id}`, skin.cost, () =>
+                          selectSkin(skin.id as 'default' | 'fox' | 'king' | 'ninja')
+                        )
+                      }
+                      style={{ padding: '6px 14px', fontSize: '0.78rem' }}
                     >
-                      💎 {skin.cost}
+                      <GemIcon size={14} /> {skin.cost}
                     </button>
                   )}
-                </div>
+                </motion.div>
               );
             })}
           </div>
-
-          {/* Close Button */}
-          <button
-            className="btn-duo btn-duo-gray"
-            onClick={() => {
-              playPop();
-              onClose();
-            }}
-            style={{ width: '100%', marginTop: '12px' }}
-          >
-            Schließen
-          </button>
-        </motion.div>
-      </div>
+        </ModalShell>
+      )}
     </AnimatePresence>
   );
 };

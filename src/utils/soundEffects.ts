@@ -1,31 +1,59 @@
-// Web Audio API Context (lazy initialization)
+// Web Audio API Context (lazy initialization, fully guarded).
+// Audio is best-effort feedback: if the AudioContext is unavailable or the
+// browser blocks it, every play function degrades to a silent no-op instead
+// of throwing an unhandled runtime exception.
 let audioCtx: AudioContext | null = null;
+let audioFailed = false;
 
-const getAudioContext = () => {
+const getAudioContext = (): AudioContext | null => {
+  if (audioFailed) return null;
   if (!audioCtx) {
-    audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    try {
+      const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctor) {
+        audioFailed = true;
+        return null;
+      }
+      audioCtx = new Ctor();
+    } catch {
+      audioFailed = true;
+      return null;
+    }
   }
   return audioCtx;
 };
 
+const resumeIfSuspended = (ctx: AudioContext): void => {
+  if (ctx.state === 'suspended') {
+    ctx.resume().catch(() => {
+      // Autoplay policy rejection – sound simply stays muted until next gesture.
+    });
+  }
+};
+
 const playOscillator = (type: OscillatorType, frequency: number, duration: number, volume: number = 0.5) => {
   const ctx = getAudioContext();
-  if (ctx.state === 'suspended') ctx.resume();
+  if (!ctx) return;
+  resumeIfSuspended(ctx);
 
-  const oscillator = ctx.createOscillator();
-  const gainNode = ctx.createGain();
+  try {
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
 
-  oscillator.type = type;
-  oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
 
-  gainNode.gain.setValueAtTime(volume, ctx.currentTime);
-  gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
+    gainNode.gain.setValueAtTime(volume, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
 
-  oscillator.connect(gainNode);
-  gainNode.connect(ctx.destination);
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
 
-  oscillator.start();
-  oscillator.stop(ctx.currentTime + duration);
+    oscillator.start();
+    oscillator.stop(ctx.currentTime + duration);
+  } catch {
+    // Never let audio feedback break gameplay.
+  }
 };
 
 export const playPop = () => {
@@ -36,12 +64,13 @@ export const playPop = () => {
 export const playSuccessChime = () => {
   // Harmonic double tone
   const ctx = getAudioContext();
-  if (ctx.state === 'suspended') ctx.resume();
-  
+  if (!ctx) return;
+  resumeIfSuspended(ctx);
+
   const playTone = (freq: number, delay: number) => {
     setTimeout(() => playOscillator('sine', freq, 0.3, 0.4), delay);
   };
-  
+
   playTone(523.25, 0);   // C5
   playTone(659.25, 150); // E5
 };
@@ -54,7 +83,8 @@ export const playErrorBuzz = () => {
 export const playVictoryFanfare = () => {
   // Triumph melody
   const ctx = getAudioContext();
-  if (ctx.state === 'suspended') ctx.resume();
+  if (!ctx) return;
+  resumeIfSuspended(ctx);
 
   const playTone = (freq: number, delay: number, duration: number) => {
     setTimeout(() => playOscillator('square', freq, duration, 0.3), delay);
