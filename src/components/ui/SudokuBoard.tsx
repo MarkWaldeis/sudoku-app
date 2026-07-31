@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../../store/GameContext';
 import { playPop, playSuccessChime, playErrorBuzz } from '../../utils/soundEffects';
@@ -163,12 +163,53 @@ export const SudokuBoard: React.FC<{ victoryWave?: boolean }> = ({ victoryWave =
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [state, selectedCell, isNotesMode, makeMove, handleNumberInput, handleErase, requestHint]);
 
-  if (!state) return null;
-
   const selectedValue =
-    selectedCell && state.board[selectedCell.r][selectedCell.c] !== null
+    state && selectedCell && state.board[selectedCell.r][selectedCell.c] !== null
       ? state.board[selectedCell.r][selectedCell.c]
       : null;
+
+  // Digits that are already fully placed (9 correct copies) – hidden from the numpad
+  const completedDigits = useMemo(() => {
+    const done = new Set<number>();
+    if (!state || !solution) return done;
+    const counts = new Array<number>(10).fill(0);
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        const v = state.board[r][c];
+        if (v !== null && v === solution[r][c]) counts[v]++;
+      }
+    }
+    for (let n = 1; n <= 9; n++) {
+      if (counts[n] >= 9) done.add(n);
+    }
+    return done;
+  }, [state, solution]);
+
+  // Cross-hatch: every row, column and 3x3 box that already contains the
+  // selected digit – makes it easy to see where that digit can still go.
+  const numberSight = useMemo(() => {
+    if (!state || selectedValue === null) return null;
+    const seen = new Set<string>();
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        if (state.board[r][c] !== selectedValue) continue;
+        for (let i = 0; i < 9; i++) {
+          seen.add(`${r}-${i}`);
+          seen.add(`${i}-${c}`);
+        }
+        const br = Math.floor(r / 3) * 3;
+        const bc = Math.floor(c / 3) * 3;
+        for (let dr = 0; dr < 3; dr++) {
+          for (let dc = 0; dc < 3; dc++) {
+            seen.add(`${br + dr}-${bc + dc}`);
+          }
+        }
+      }
+    }
+    return seen;
+  }, [state, selectedValue]);
+
+  if (!state) return null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
@@ -236,6 +277,8 @@ export const SudokuBoard: React.FC<{ victoryWave?: boolean }> = ({ victoryWave =
                 !!selectedCell && !isSelected && (selectedCell.r === rowIndex || selectedCell.c === colIndex);
               const isSameNumber =
                 !isSelected && selectedValue !== null && val !== null && val === selectedValue;
+              const isInNumberSight =
+                !isSelected && !isSameNumber && !!numberSight?.has(`${rowIndex}-${colIndex}`);
               const isInitial = state.initialBoard[rowIndex][colIndex] !== null;
               const isWrong =
                 !isInitial && val !== null && !!solution && val !== solution[rowIndex][colIndex];
@@ -253,10 +296,12 @@ export const SudokuBoard: React.FC<{ victoryWave?: boolean }> = ({ victoryWave =
                   : isWrong
                     ? '#ffe5e5'
                     : isSameNumber
-                      ? '#d8f0fe'
-                      : isRelated
-                        ? '#e5f6ff'
-                        : 'white';
+                      ? '#b3e3fd'
+                      : isInNumberSight
+                        ? '#eaf7ff'
+                        : isRelated
+                          ? '#e5f6ff'
+                          : 'white';
 
               const fg = isSelected
                 ? 'white'
@@ -288,7 +333,11 @@ export const SudokuBoard: React.FC<{ victoryWave?: boolean }> = ({ victoryWave =
                     userSelect: 'none',
                     backgroundColor: bg,
                     color: fg,
-                    boxShadow: isHinted ? 'inset 0 0 12px #ffc800' : 'none',
+                    boxShadow: isHinted
+                      ? 'inset 0 0 12px #ffc800'
+                      : isSameNumber
+                        ? 'inset 0 0 10px #4fb8f7'
+                        : 'none',
                     animationDelay: victoryWave ? `${waveDelay}ms` : undefined,
                     transition:
                       'background-color 120ms var(--ease-out), color 120ms var(--ease-out), transform 100ms var(--ease-out)',
@@ -354,23 +403,32 @@ export const SudokuBoard: React.FC<{ victoryWave?: boolean }> = ({ victoryWave =
           padding: '0 10px',
         }}
       >
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-          <button
-            key={num}
-            onClick={() => handleNumberInput(num)}
-            className="btn-duo btn-duo-gray"
-            aria-label={`Zahl ${num} eingeben`}
-            style={{
-              width: '48px',
-              height: '48px',
-              fontSize: '1.3rem',
-              fontWeight: 800,
-              padding: 0,
-            }}
-          >
-            {num}
-          </button>
-        ))}
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => {
+          const isComplete = completedDigits.has(num);
+          return (
+            <button
+              key={num}
+              onClick={() => handleNumberInput(num)}
+              className="btn-duo btn-duo-gray"
+              aria-label={`Zahl ${num} eingeben`}
+              aria-hidden={isComplete}
+              disabled={isComplete}
+              tabIndex={isComplete ? -1 : 0}
+              style={{
+                width: '48px',
+                height: '48px',
+                fontSize: '1.3rem',
+                fontWeight: 800,
+                padding: 0,
+                opacity: isComplete ? 0 : 1,
+                pointerEvents: isComplete ? 'none' : undefined,
+                transition: 'opacity 300ms var(--ease-out)',
+              }}
+            >
+              {num}
+            </button>
+          );
+        })}
         <button
           onClick={handleErase}
           className="btn-duo btn-duo-gray"
