@@ -432,9 +432,12 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const totalGems = baseGems + speedBonusGems;
 
     setProfile(p => {
-      const newUnlocked = p.unlockedLevels.includes(levelId + 1)
-        ? p.unlockedLevels
-        : [...p.unlockedLevels, levelId + 1];
+      // Nur Kampagnen-Level (1-20) schalten das naechste Level frei;
+      // das Extrem-Level (99) darf die Pfad-Progression nicht verfaelschen.
+      const newUnlocked =
+        levelId >= 1 && levelId <= 20 && !p.unlockedLevels.includes(levelId + 1)
+          ? [...p.unlockedLevels, levelId + 1]
+          : p.unlockedLevels;
 
       const today = new Date().toDateString();
       let newStreak = p.streak;
