@@ -15,11 +15,51 @@
   --duo-text-dark: #3c3c3c;
   --duo-text-light: #6e6e6e;
 
+  /* Themeable surfaces (Dark Mode overrides these under [data-theme="dark"]) */
+  --duo-bg-card: #ffffff;
+  --duo-bg-subtle: #f0f0f0;
+  --duo-nav-bg: rgba(255, 255, 255, 0.92);
+  --duo-gem-chip-bg: #fff4cc;
+  --duo-tint-green: #eefbdf;
+  --duo-tint-purple: #f3eaff;
+  --duo-tint-blue: #e5f6ff;
+
+  /* Sudoku-Board: Zellen-Hervorhebungen (Dark Mode unten ueberschrieben) */
+  --duo-cell-hint: #fff4cc;
+  --duo-cell-wrong: #ffe5e5;
+  --duo-cell-same: #b3e3fd;
+  --duo-cell-sight: #eaf7ff;
+  --duo-cell-related: #e5f6ff;
+
   /* Motion tokens (design-system curves) */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --dur-press: 120ms;
   --dur-enter: 200ms;
+}
+
+/* ---------------------------------------------------------------------------
+ * Dark Mode: App.tsx spiegelt profile.theme auf <html data-theme="...">.
+ * Gleiche Variablen wie oben, nur dunkle Werte – Light bleibt unveraendert.
+ * ------------------------------------------------------------------------- */
+[data-theme="dark"] {
+  --duo-bg-light: #131f24;
+  --duo-bg-card: #1e2b33;
+  --duo-bg-subtle: #2b3a44;
+  --duo-nav-bg: rgba(30, 43, 51, 0.92);
+  --duo-text-dark: #f1f7fb;
+  --duo-text-light: #a7b6c2;
+  --duo-gray: #3b4a55;
+  --duo-gray-shadow: #24313a;
+  --duo-gem-chip-bg: #3d3520;
+  --duo-tint-green: #1e3524;
+  --duo-tint-purple: #2f2540;
+  --duo-tint-blue: #17303f;
+  --duo-cell-hint: #4a3d10;
+  --duo-cell-wrong: #4d1d24;
+  --duo-cell-same: #14486b;
+  --duo-cell-sight: #16303f;
+  --duo-cell-related: #17303f;
 }
 
 /* ---------------------------------------------------------------------------
@@ -211,7 +251,7 @@ button:focus-visible {
 }
 
 .duo-panel {
-  background-color: white;
+  background-color: var(--duo-bg-card);
   border-radius: 24px;
   box-shadow:
     0 24px 48px rgba(15, 23, 42, 0.18),

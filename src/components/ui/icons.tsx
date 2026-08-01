@@ -211,3 +211,51 @@ export const PartyIcon: React.FC<IconProps> = (p) => (
     <circle cx="12.5" cy="7.5" r="0.4" fill="currentColor" />
   </Svg>
 );
+
+export const GearIcon: React.FC<IconProps> = (p) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+  </Svg>
+);
+
+export const CalendarIcon: React.FC<IconProps> = (p) => (
+  <Svg {...p}>
+    <rect x="3.5" y="5" width="17" height="16" rx="2.5" />
+    <path d="M3.5 9.5h17" />
+    <path d="M8 3v4" />
+    <path d="M16 3v4" />
+  </Svg>
+);
+
+export const PauseIcon: React.FC<IconProps> = (p) => (
+  <Svg {...p}>
+    <path d="M9 5v14" />
+    <path d="M15 5v14" />
+  </Svg>
+);
+
+export const PlayIcon: React.FC<IconProps> = (p) => (
+  <Svg {...p}>
+    <path d="M7 4.5v15l12-7.5L7 4.5Z" />
+  </Svg>
+);
+
+export const SwordsIcon: React.FC<IconProps> = (p) => (
+  <Svg {...p}>
+    <path d="M4 4l9.5 9.5" />
+    <path d="M4 4v4M4 4h4" />
+    <path d="M20 4l-9.5 9.5" />
+    <path d="M20 4v4M20 4h-4" />
+    <path d="M7 16l-3 3 1 1 3-3" />
+    <path d="M17 16l3 3-1 1-3-3" />
+  </Svg>
+);
+
+export const GradCapIcon: React.FC<IconProps> = (p) => (
+  <Svg {...p}>
+    <path d="M12 4 2 9l10 5 10-5-10-5Z" />
+    <path d="M6 11.5V16c0 1.5 2.7 3 6 3s6-1.5 6-3v-4.5" />
+    <path d="M22 9v5" />
+  </Svg>
+);

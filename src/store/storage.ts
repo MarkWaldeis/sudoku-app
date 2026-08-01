@@ -89,6 +89,14 @@ export const clearGame = async (): Promise<void> => {
 
 const MASCOT_SKINS = MASCOT_SKIN_IDS;
 
+export interface GameHistoryEntry {
+  date: string;
+  difficulty: string;
+  timeSeconds: number;
+  mistakes: number;
+  xpGained: number;
+}
+
 export interface UserProfile {
   xp: number;
   gems: number;
@@ -106,6 +114,16 @@ export interface UserProfile {
   xpBoostCharges: number;
   selectedMascotSkin: string;
   unlockedSkins: string[];
+  theme: 'light' | 'dark';
+  /** Zen mode: hide the timer. */
+  zenMode: boolean;
+  /** Mark wrong entries in red. */
+  errorHighlight: boolean;
+  /** Remove a correctly placed number from pencil marks of the same row/column/box. */
+  autoPencilCleanup: boolean;
+  /** Date keys ('YYYY-MM-DD') of completed daily challenges. */
+  dailyCompleted: string[];
+  gameHistory: GameHistoryEntry[];
 }
 
 export const defaultProfile: UserProfile = {
@@ -123,6 +141,12 @@ export const defaultProfile: UserProfile = {
   xpBoostCharges: 0,
   selectedMascotSkin: 'default',
   unlockedSkins: ['default'],
+  theme: 'light',
+  zenMode: false,
+  errorHighlight: false,
+  autoPencilCleanup: true,
+  dailyCompleted: [],
+  gameHistory: [],
 };
 
 const clampInt = (value: unknown, min: number, max: number, fallback: number): number => {
@@ -130,12 +154,35 @@ const clampInt = (value: unknown, min: number, max: number, fallback: number): n
   return Math.min(max, Math.max(min, n));
 };
 
+const DATE_KEY_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+
+const DIFFICULTIES = ['easy', 'medium', 'hard', 'extreme'];
+
+const sanitizeGameHistory = (raw: unknown): GameHistoryEntry[] => {
+  if (!Array.isArray(raw)) return [];
+  const entries: GameHistoryEntry[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const e = item as Partial<GameHistoryEntry>;
+    if (typeof e.date !== 'string' || !DATE_KEY_RE.test(e.date)) continue;
+    if (typeof e.difficulty !== 'string' || !DIFFICULTIES.includes(e.difficulty)) continue;
+    entries.push({
+      date: e.date,
+      difficulty: e.difficulty,
+      timeSeconds: clampInt(e.timeSeconds, 0, 1_000_000, 0),
+      mistakes: clampInt(e.mistakes, 0, 100_000, 0),
+      xpGained: clampInt(e.xpGained, 0, 10_000_000, 0),
+    });
+  }
+  return entries.slice(-200);
+};
+
 /**
  * Never trust persisted data blindly: corrupted or hand-edited storage must
  * not crash the app or grant impossible values. Every field is type-checked
  * and clamped to its legal range.
  */
-const sanitizeProfile = (raw: unknown): UserProfile => {
+export const sanitizeProfile = (raw: unknown): UserProfile => {
   if (!raw || typeof raw !== 'object') return defaultProfile;
   const p = raw as Partial<UserProfile>;
 
@@ -153,6 +200,10 @@ const sanitizeProfile = (raw: unknown): UserProfile => {
     ? p.selectedMascotSkin
     : 'default';
 
+  const dailyCompleted = Array.isArray(p.dailyCompleted)
+    ? [...new Set(p.dailyCompleted.filter((d): d is string => typeof d === 'string' && DATE_KEY_RE.test(d)))].slice(-500)
+    : [];
+
   return {
     xp: clampInt(p.xp, 0, 10_000_000, 0),
     gems: clampInt(p.gems, 0, 1_000_000, 100),
@@ -168,6 +219,12 @@ const sanitizeProfile = (raw: unknown): UserProfile => {
     xpBoostCharges: clampInt(p.xpBoostCharges, 0, 99, 0),
     selectedMascotSkin: skin,
     unlockedSkins,
+    theme: p.theme === 'dark' ? 'dark' : 'light',
+    zenMode: typeof p.zenMode === 'boolean' ? p.zenMode : false,
+    errorHighlight: typeof p.errorHighlight === 'boolean' ? p.errorHighlight : false,
+    autoPencilCleanup: typeof p.autoPencilCleanup === 'boolean' ? p.autoPencilCleanup : true,
+    dailyCompleted,
+    gameHistory: sanitizeGameHistory(p.gameHistory),
   };
 };
 

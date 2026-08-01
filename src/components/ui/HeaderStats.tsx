@@ -62,7 +62,7 @@ export const HeaderStats: React.FC<HeaderStatsProps> = ({
         paddingTop: 'calc(12px + var(--sat, 0px))',
         paddingLeft: 'calc(16px + var(--sal, 0px))',
         paddingRight: 'calc(16px + var(--sar, 0px))',
-        backgroundColor: 'white',
+        backgroundColor: 'var(--duo-bg-card)',
         borderBottom: '2px solid var(--duo-gray)',
         position: 'sticky',
         top: 0,
@@ -83,7 +83,7 @@ export const HeaderStats: React.FC<HeaderStatsProps> = ({
           style={{
             ...statChip,
             color: 'var(--duo-text-dark)',
-            backgroundColor: '#f0f0f0',
+            backgroundColor: 'var(--duo-bg-subtle)',
             padding: '4px 10px',
             borderRadius: '12px',
             fontSize: '0.85rem',
@@ -114,7 +114,7 @@ export const HeaderStats: React.FC<HeaderStatsProps> = ({
         style={{
           ...shopButtonStyle,
           color: '#d48800',
-          backgroundColor: '#fff4cc',
+          backgroundColor: 'var(--duo-gem-chip-bg)',
           border: '1px solid var(--duo-yellow-shadow)',
         }}
         aria-label={`${gems} Edelsteine – Shop öffnen`}

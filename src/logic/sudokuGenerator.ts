@@ -42,24 +42,38 @@ const isValid = (board: Board, row: number, col: number, num: number): boolean =
   return true;
 };
 
-const shuffle = <T>(array: T[]): T[] => {
+export type RNG = () => number;
+
+/** Deterministic PRNG (mulberry32) so seeded puzzles are fully reproducible. */
+export const mulberry32 = (seed: number): RNG => {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+const shuffle = <T>(array: T[], rng: RNG = Math.random): T[] => {
   const result = [...array];
   for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [result[i], result[j]] = [result[j], result[i]];
   }
   return result;
 };
 
-const solve = (board: Board): boolean => {
+const solve = (board: Board, rng: RNG = Math.random): boolean => {
   for (let row = 0; row < 9; row++) {
     for (let col = 0; col < 9; col++) {
       if (board[row][col] === BLANK) {
-        const nums = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+        const nums = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9], rng);
         for (const num of nums) {
           if (isValid(board, row, col, num)) {
             board[row][col] = num;
-            if (solve(board)) return true;
+            if (solve(board, rng)) return true;
             board[row][col] = BLANK;
           }
         }
@@ -97,8 +111,8 @@ const countSolutions = (board: Board, limit: number = 2): number => {
   return count;
 };
 
-export const generateSudoku = (difficulty: Difficulty): { puzzle: Board; solution: Board } => {
-  if (difficulty === 'extreme' && Math.random() < 0.5) {
+const generateSudokuWithRng = (difficulty: Difficulty, rng: RNG): { puzzle: Board; solution: Board } => {
+  if (difficulty === 'extreme' && rng() < 0.5) {
     return {
       puzzle: EXTREME_PUZZLE.map(row => [...row]),
       solution: EXTREME_SOLUTION.map(row => [...row])
@@ -106,7 +120,7 @@ export const generateSudoku = (difficulty: Difficulty): { puzzle: Board; solutio
   }
 
   const solution = createEmptyBoard();
-  solve(solution);
+  solve(solution, rng);
 
   const puzzle = solution.map(row => [...row]);
   let cellsToRemove = 0;
@@ -124,7 +138,7 @@ export const generateSudoku = (difficulty: Difficulty): { puzzle: Board; solutio
       rawPositions.push([r, c]);
     }
   }
-  const positions = shuffle(rawPositions);
+  const positions = shuffle(rawPositions, rng);
 
   for (const [r, c] of positions) {
     if (cellsToRemove <= 0) break;
@@ -142,3 +156,10 @@ export const generateSudoku = (difficulty: Difficulty): { puzzle: Board; solutio
 
   return { puzzle, solution };
 };
+
+export const generateSudoku = (difficulty: Difficulty): { puzzle: Board; solution: Board } =>
+  generateSudokuWithRng(difficulty, Math.random);
+
+/** Same generator, but fully deterministic from the given seed. */
+export const generateSudokuSeeded = (difficulty: Difficulty, seed: number): { puzzle: Board; solution: Board } =>
+  generateSudokuWithRng(difficulty, mulberry32(seed));

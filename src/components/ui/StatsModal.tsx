@@ -11,6 +11,21 @@ interface StatsModalProps {
   onClose: () => void;
 }
 
+const DIFF_LABEL: Record<string, string> = {
+  easy: 'Leicht',
+  medium: 'Mittel',
+  hard: 'Schwer',
+  extreme: 'Extrem',
+};
+
+const formatTime = (seconds: number): string =>
+  `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
+
+const formatDate = (dateKey: string): string => {
+  const [y, m, d] = dateKey.split('-');
+  return `${d}.${m}.${y}`;
+};
+
 export const StatsModal: React.FC<StatsModalProps> = ({ onClose }) => {
   const { profile } = useGame();
 
@@ -18,6 +33,18 @@ export const StatsModal: React.FC<StatsModalProps> = ({ onClose }) => {
   const accuracy = totalMoves > 0
     ? Math.round(((profile.correctMoves || 0) / totalMoves) * 100)
     : 100;
+
+  // --- Erweiterte Statistiken aus der Spiel-Historie (gameHistory) ---
+  const history = profile.gameHistory || [];
+  const bestTimes = (['easy', 'medium', 'hard', 'extreme'] as const).map((diff) => {
+    const times = history.filter((h) => h.difficulty === diff).map((h) => h.timeSeconds);
+    return { diff, best: times.length > 0 ? Math.min(...times) : null };
+  });
+  const last10 = history.slice(-10);
+  const avgLast10 = last10.length > 0
+    ? Math.round(last10.reduce((sum, h) => sum + h.timeSeconds, 0) / last10.length)
+    : null;
+  const last5 = history.slice(-5).reverse();
 
   return (
     <ModalShell onClose={onClose} maxWidth={400}>
@@ -59,6 +86,101 @@ export const StatsModal: React.FC<StatsModalProps> = ({ onClose }) => {
         </span>
       </div>
 
+      {history.length === 0 ? (
+        <div
+          style={{
+            backgroundColor: 'var(--duo-bg-light)',
+            padding: '16px',
+            borderRadius: '16px',
+            textAlign: 'center',
+            marginBottom: '20px',
+            fontWeight: 700,
+            color: 'var(--duo-text-light)',
+            fontSize: '0.9rem',
+          }}
+        >
+          Noch keine abgeschlossenen Spiele – löse dein erstes Sudoku, dann siehst du hier Bestzeiten &amp; Co.! 🌱
+        </div>
+      ) : (
+        <>
+          <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--duo-text-dark)', margin: '0 0 10px 0' }}>
+            Bestzeiten
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '20px' }}>
+            {bestTimes.map(({ diff, best }) => (
+              <div
+                key={diff}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  backgroundColor: 'var(--duo-bg-light)',
+                  borderRadius: '12px',
+                  padding: '10px 14px',
+                  fontWeight: 800,
+                  fontSize: '0.88rem',
+                  color: 'var(--duo-text-dark)',
+                }}
+              >
+                <span>{DIFF_LABEL[diff]}</span>
+                <span style={{ color: best !== null ? 'var(--duo-blue)' : 'var(--duo-text-light)' }}>
+                  {best !== null ? formatTime(best) : '–'}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {avgLast10 !== null && (
+            <div
+              style={{
+                backgroundColor: 'var(--duo-bg-light)',
+                padding: '12px 14px',
+                borderRadius: '12px',
+                textAlign: 'center',
+                marginBottom: '20px',
+                fontWeight: 800,
+                fontSize: '0.88rem',
+                color: 'var(--duo-text-dark)',
+              }}
+            >
+              ⏱️ Durchschnittszeit (letzte {last10.length} Spiele):{' '}
+              <b style={{ color: 'var(--duo-blue)' }}>{formatTime(avgLast10)}</b>
+            </div>
+          )}
+
+          <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--duo-text-dark)', margin: '0 0 10px 0' }}>
+            Letzte Spiele
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '20px' }}>
+            {last5.map((entry, i) => (
+              <div
+                key={`${entry.date}-${i}`}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '8px',
+                  backgroundColor: 'var(--duo-bg-light)',
+                  borderRadius: '12px',
+                  padding: '8px 14px',
+                  fontWeight: 700,
+                  fontSize: '0.8rem',
+                  color: 'var(--duo-text-light)',
+                }}
+              >
+                <span>{formatDate(entry.date)}</span>
+                <span style={{ color: 'var(--duo-text-dark)', fontWeight: 800 }}>
+                  {DIFF_LABEL[entry.difficulty] ?? entry.difficulty}
+                </span>
+                <span>{formatTime(entry.timeSeconds)}</span>
+                <span>{entry.mistakes} Fehler</span>
+                <span style={{ color: 'var(--duo-blue)', fontWeight: 800 }}>+{entry.xpGained} XP</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       <button
         className="btn-duo btn-duo-blue"
         onClick={() => {
@@ -86,7 +208,7 @@ const StatBox: React.FC<{ icon: React.ReactNode; label: string; value: string; c
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.2, delay, ease: [0.23, 1, 0.32, 1] }}
     style={{
-      backgroundColor: 'white',
+      backgroundColor: 'var(--duo-bg-card)',
       border: `2px solid ${color}`,
       borderRadius: '16px',
       padding: '14px 12px',

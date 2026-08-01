@@ -30,7 +30,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onSelectTab })
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: 'rgba(255, 255, 255, 0.92)',
+        backgroundColor: 'var(--duo-nav-bg)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
         borderTop: '2px solid var(--duo-gray)',
@@ -86,7 +86,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onSelectTab })
                 style={{
                   position: 'absolute',
                   inset: '2px 0',
-                  backgroundColor: '#e5f6ff',
+                  backgroundColor: 'var(--duo-tint-blue)',
                   borderRadius: '16px',
                   zIndex: 0,
                 }}

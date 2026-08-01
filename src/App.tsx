@@ -1,21 +1,27 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GameProvider, useGame } from './store/GameContext';
 import { SudokuBoard } from './components/ui/SudokuBoard';
 import { HeaderStats } from './components/ui/HeaderStats';
 import { LevelPathMap } from './components/ui/LevelPathMap';
 import { MascotAssistant } from './components/ui/MascotAssistant';
 import { ModalShell } from './components/ui/ModalShell';
-import { MapIcon, BoltIcon, SkullIcon, CartIcon, UndoIcon, RedoIcon, CheckIcon, CloseIcon, HeartIcon, GemIcon, PartyIcon } from './components/ui/icons';
+import { MapIcon, BoltIcon, SkullIcon, CartIcon, UndoIcon, RedoIcon, CheckIcon, CloseIcon, HeartIcon, GemIcon, PartyIcon, GearIcon, CalendarIcon, PauseIcon, PlayIcon, SwordsIcon, GradCapIcon } from './components/ui/icons';
 import { playPop, playVictoryFanfare, playErrorBuzz, playWhoosh } from './utils/soundEffects';
 import { hapticTap, hapticVictory, hapticError } from './utils/haptics';
 import { campaignLevels } from './logic/campaignLevels';
+import { getDateKey, seedFromDateKey, getDailyDifficulty, encodeChallenge, decodeChallenge } from './logic/dailyChallenge';
 import { BottomNav } from './components/ui/BottomNav';
 import { StatsModal } from './components/ui/StatsModal';
 import { LeaderboardModal } from './components/ui/LeaderboardModal';
 import { ShopModal } from './components/ui/ShopModal';
+import { SettingsModal } from './components/ui/SettingsModal';
+import { DailyChallengeModal } from './components/ui/DailyChallengeModal';
+import { ChallengeModal } from './components/ui/ChallengeModal';
+import { TechniqueSchoolModal } from './components/ui/TechniqueSchoolModal';
+import type { UserProfile } from './store/storage';
 import './styles/duolingo.css';
 import confetti from 'canvas-confetti';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const COMBO_MESSAGES = [
   'Combo x{combo}! Du bist auf einem Lauf! 🔥',
@@ -32,6 +38,32 @@ const MISTAKE_MESSAGES = [
 const pickMessage = (list: string[], seed: number, combo?: number): string => {
   const msg = list[Math.abs(seed) % list.length];
   return combo !== undefined ? msg.replace('{combo}', String(combo)) : msg;
+};
+
+// --- UI-Teil 2: Adaptive Maskottchen-Empfehlung aus der Spiel-Historie ---
+const DIFF_INDEX: Record<string, number> = { easy: 0, medium: 1, hard: 2, extreme: 3 };
+const DIFF_LABELS = ['Leicht', 'Mittel', 'Schwer', 'Extrem'];
+// Richtwerte (Sekunden), ab denen ein Spiel als "schnell" gilt
+const FAST_TIME: Record<string, number> = { easy: 240, medium: 360, hard: 600, extreme: 900 };
+
+/** Gibt eine Empfehlung basierend auf den letzten ~5 Spielen zurück, sonst null. */
+const getAdaptiveTip = (profile: UserProfile): string | null => {
+  const recent = profile.gameHistory.slice(-5);
+  if (recent.length === 0) return null;
+  const avgMistakes = recent.reduce((sum, e) => sum + e.mistakes, 0) / recent.length;
+  const lastDiff = recent[recent.length - 1].difficulty;
+  const idx = DIFF_INDEX[lastDiff] ?? 0;
+
+  if (avgMistakes > 3) {
+    const easier = idx > 0 ? ` Starte ruhig ein ${DIFF_LABELS[idx - 1]}-Level zum Aufwärmen!` : '';
+    return `Versuch es mit Notizen (Taste N), um Kandidaten festzuhalten – das reduziert Fehler enorm!${easier} 📝`;
+  }
+  const avgTime = recent.reduce((sum, e) => sum + e.timeSeconds, 0) / recent.length;
+  if (avgMistakes <= 1 && avgTime > 0 && avgTime <= (FAST_TIME[lastDiff] ?? 300)) {
+    const harder = idx < 2 ? `Wage dich an ${DIFF_LABELS[idx + 1]}!` : 'Der Extrem-Boss wartet auf dich! 💀';
+    return `Wow, schnell und fehlerfrei! Zeit für mehr Herausforderung: ${harder} 🚀`;
+  }
+  return null;
 };
 
 const fireVictoryConfetti = () => {
@@ -57,11 +89,34 @@ const MainAppContent: React.FC = () => {
   const [playingLevel, setPlayingLevel] = useState<number | null>(null);
   const [playingDifficulty, setPlayingDifficulty] = useState<'easy' | 'medium' | 'hard' | 'extreme'>('easy');
 
+  // --- UI-Teil 1: Settings-/Daily-Modals + Mistakes-Tracking ---
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showDailyModal, setShowDailyModal] = useState(false);
+  // Fehlerzähler pro Spiel (Dedup über lastMoveResult.at, siehe Effekt unten)
+  const mistakesRef = useRef(0);
+  const lastWrongAtRef = useRef<number | null>(null);
+
+  // --- UI-Teil 2: Pause, Duell, Schule, Boss-Intro ---
+  const [isPaused, setIsPaused] = useState(false);
+  const [showChallengeModal, setShowChallengeModal] = useState(false);
+  const [showSchoolModal, setShowSchoolModal] = useState(false);
+  const [showBossIntro, setShowBossIntro] = useState(false);
+
+  // Dark/Light-Theme auf <html> spiegeln (Variable-Sets in duolingo.css)
+  useEffect(() => {
+    document.documentElement.dataset.theme = profile.theme;
+  }, [profile.theme]);
+
   // Timer state
   const [timerSeconds, setTimerSeconds] = useState<number>(0);
   const [victoryStats, setVictoryStats] = useState<{ xpGained: number; gemsGained: number; speedBonusGems: number; xpBoosted: boolean; streakFreezeUsed: boolean } | null>(null);
 
-  const hasActiveGame = view === 'game' && !!state && !state.isGameOver && !showVictoryModal && !victoryWave;
+  const hasActiveGame = view === 'game' && !!state && !state.isGameOver && !showVictoryModal && !victoryWave && !isPaused;
+
+  // Pause automatisch beenden bei View-Wechsel oder Spielende
+  useEffect(() => {
+    if (view !== 'game' || state?.isGameOver) setIsPaused(false);
+  }, [view, state?.isGameOver]);
 
   // Clear the pending victory-wave timeout on unmount
   useEffect(() => {
@@ -101,7 +156,21 @@ const MainAppContent: React.FC = () => {
     }
   }, [lastMoveResult, comboCount, isGameOverNow, showVictoryModal]);
 
-  const handleStartLevel = (difficulty: 'easy' | 'medium' | 'hard' | 'extreme', levelId: number | null = null) => {
+  // Falsche Züge pro Spiel zählen – 'at' als Dedup-Key, damit derselbe
+  // wrong-Zug bei Re-Renders nicht doppelt zählt.
+  useEffect(() => {
+    if (lastMoveResult?.kind === 'wrong' && lastMoveResult.at !== lastWrongAtRef.current) {
+      lastWrongAtRef.current = lastMoveResult.at;
+      mistakesRef.current += 1;
+    }
+  }, [lastMoveResult]);
+
+  const handleStartLevel = (
+    difficulty: 'easy' | 'medium' | 'hard' | 'extreme',
+    levelId: number | null = null,
+    // UI-Teil 1: optionaler meta-Parameter (daily/challenge Seeds etc.)
+    meta?: { mode?: 'campaign' | 'quick' | 'extreme' | 'daily' | 'challenge'; seed?: number; dailyKey?: string }
+  ) => {
     playPop();
     hapticTap();
     setPlayingDifficulty(difficulty);
@@ -111,7 +180,11 @@ const MainAppContent: React.FC = () => {
     setVictoryWave(false);
     if (victoryWaveTimeoutRef.current) clearTimeout(victoryWaveTimeoutRef.current);
     setVictoryStats(null);
-    startNewGame(difficulty);
+    setIsPaused(false);
+    setShowBossIntro(false);
+    mistakesRef.current = 0;
+    lastWrongAtRef.current = null;
+    startNewGame(difficulty, meta);
     setView('game');
     if (difficulty === 'extreme') {
       setMascotMessage('Bist du wahnsinnig? Das ist das EXTREME Sudoku-Level! Nur 17 Vorgaben! 💀🔥');
@@ -119,6 +192,64 @@ const MainAppContent: React.FC = () => {
       setMascotMessage('Konzentriere dich! Finde alle fehlenden Zahlen.');
     }
   };
+
+  // Daily Challenge: deterministisches Puzzle aus dem heutigen Datum (Seed)
+  const DAILY_DIFF_LABEL: Record<string, string> = { easy: 'Leicht', medium: 'Mittel', hard: 'Schwer' };
+  const handleStartDaily = () => {
+    if (view === 'game' && !state?.isGameOver && !showVictoryModal && !window.confirm('Möchtest du das aktuelle Spiel wirklich abbrechen?')) return;
+    const key = getDateKey();
+    const difficulty = getDailyDifficulty(key);
+    handleStartLevel(difficulty, null, { mode: 'daily', seed: seedFromDateKey(key), dailyKey: key });
+    setMascotMessage(`Tägliche Challenge – heute: ${DAILY_DIFF_LABEL[difficulty]}. Viel Erfolg! 📅`);
+  };
+
+  // Duell (Challenge-Code): gleicher Seed = dasselbe Sudoku für beide Spieler
+  const startChallenge = useCallback(
+    (difficulty: 'easy' | 'medium' | 'hard', seed: number) => {
+      if (view === 'game' && !state?.isGameOver && !showVictoryModal && !window.confirm('Möchtest du das aktuelle Spiel wirklich abbrechen?')) return;
+      setShowChallengeModal(false);
+      handleStartLevel(difficulty, null, { mode: 'challenge', seed });
+      setMascotMessage(`Duell gestartet! Code ${encodeChallenge(seed)} – gib deinem Freund Bescheid und vergleicht eure Zeiten! ⚔️`);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [view, state?.isGameOver, showVictoryModal]
+  );
+
+  // Challenge-Links (#challenge=CODE): beim Mount und bei hashchange direkt starten
+  useEffect(() => {
+    const tryStartFromHash = () => {
+      const match = window.location.hash.match(/^#challenge=(.+)$/);
+      if (!match) return;
+      const seed = decodeChallenge(match[1]);
+      // Hash immer entfernen, damit ein Reload das Duell nicht erneut startet
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      if (seed !== null) {
+        startChallenge('medium', seed);
+      } else {
+        setMascotMessage('Dieser Duell-Link ist leider ungültig. Lass dir einen neuen Code geben! ⚔️');
+      }
+    };
+    tryStartFromHash();
+    window.addEventListener('hashchange', tryStartFromHash);
+    return () => window.removeEventListener('hashchange', tryStartFromHash);
+  }, [startChallenge]);
+
+  // Boss-Inszenierung: Extrem startet nur über das Intro
+  const requestExtremeStart = () => {
+    if (view === 'game' && !state?.isGameOver && !showVictoryModal && !window.confirm('Möchtest du das aktuelle Spiel abbrechen?')) return;
+    playPop();
+    hapticTap();
+    setShowBossIntro(true);
+    setMascotMessage('Der Boss fordert dich heraus! Zeig ihm, was in dir steckt! 💀🔥');
+  };
+
+  // Adaptive Empfehlung beim Wechsel auf die Kampagnen-Ansicht
+  useEffect(() => {
+    if (view !== 'campaign' || hasActiveGame) return;
+    const tip = getAdaptiveTip(profile);
+    if (tip) setMascotMessage(tip);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, profile.gameHistory]);
 
   const handleVerify = () => {
     // Guard: while the wave/modal is showing, a second tap on "Prüfen"
@@ -133,7 +264,11 @@ const MainAppContent: React.FC = () => {
       // Lock in the rewards immediately, but celebrate on the board first:
       // the victory wave lets all numbers jump diagonally from bottom-left
       // to top-right (16 diagonals * 45ms stagger + 620ms jump ≈ 1.35s).
-      const stats = completeLevel(playingLevel || 1, timerSeconds, playingDifficulty);
+      const stats = completeLevel(playingLevel || 1, timerSeconds, playingDifficulty, {
+        mistakes: mistakesRef.current,
+        dailyKey: state?.dailyKey,
+        challengeSeed: state?.challengeSeed,
+      });
       setVictoryStats(stats);
       setVictoryWave(true);
       if (victoryWaveTimeoutRef.current) clearTimeout(victoryWaveTimeoutRef.current);
@@ -171,7 +306,7 @@ const MainAppContent: React.FC = () => {
         lives={state?.lives ?? 3}
         xp={profile.xp}
         gems={profile.gems}
-        timerSeconds={view === 'game' ? timerSeconds : undefined}
+        timerSeconds={view === 'game' && !profile.zenMode ? timerSeconds : undefined}
         level={view === 'game' && playingLevel ? playingLevel : profile.unlockedLevels.length}
         onOpenShop={() => {
           playPop();
@@ -188,7 +323,7 @@ const MainAppContent: React.FC = () => {
           justifyContent: 'center',
           gap: '10px',
           padding: '12px 16px',
-          backgroundColor: 'white',
+          backgroundColor: 'var(--duo-bg-card)',
           borderBottom: '2px solid var(--duo-gray)',
           flexWrap: 'wrap',
         }}
@@ -214,12 +349,39 @@ const MainAppContent: React.FC = () => {
         </button>
         <button
           className={`btn-duo ${view === 'game' && playingDifficulty === 'extreme' ? 'btn-duo-red' : 'btn-duo-purple'}`}
-          onClick={() => {
-            if (view === 'game' && !state?.isGameOver && !window.confirm('Möchtest du das aktuelle Spiel abbrechen?')) return;
-            handleStartLevel('extreme', 99);
-          }}
+          onClick={requestExtremeStart}
         >
           <SkullIcon size={18} /> Extrem
+        </button>
+        <button
+          className={`btn-duo ${view === 'game' && state?.gameMode === 'daily' ? 'btn-duo-green' : 'btn-duo-blue'}`}
+          onClick={() => {
+            playPop();
+            hapticTap();
+            setShowDailyModal(true);
+          }}
+        >
+          <CalendarIcon size={18} /> Täglich
+        </button>
+        <button
+          className={`btn-duo ${view === 'game' && state?.gameMode === 'challenge' ? 'btn-duo-green' : 'btn-duo-purple'}`}
+          onClick={() => {
+            playPop();
+            hapticTap();
+            setShowChallengeModal(true);
+          }}
+        >
+          <SwordsIcon size={18} /> Duell
+        </button>
+        <button
+          className="btn-duo btn-duo-gray"
+          onClick={() => {
+            playPop();
+            hapticTap();
+            setShowSchoolModal(true);
+          }}
+        >
+          <GradCapIcon size={18} /> Schule
         </button>
         <button
           className="btn-duo btn-duo-yellow"
@@ -230,6 +392,17 @@ const MainAppContent: React.FC = () => {
           }}
         >
           <CartIcon size={18} /> Shop
+        </button>
+        <button
+          className="btn-duo btn-duo-gray"
+          onClick={() => {
+            playPop();
+            hapticTap();
+            setShowSettingsModal(true);
+          }}
+          aria-label="Einstellungen öffnen"
+        >
+          <GearIcon size={18} />
         </button>
       </div>
 
@@ -264,6 +437,7 @@ const MainAppContent: React.FC = () => {
               }}
               className="btn-duo btn-duo-gray"
               aria-label="Zug rückgängig machen"
+              disabled={isPaused}
             >
               <UndoIcon size={18} /> Zurück
             </button>
@@ -275,10 +449,25 @@ const MainAppContent: React.FC = () => {
               }}
               className="btn-duo btn-duo-gray"
               aria-label="Zug wiederholen"
+              disabled={isPaused}
             >
               <RedoIcon size={18} /> Wiederholen
             </button>
-            <button onClick={handleVerify} className="btn-duo btn-duo-green">
+            {state && !state.isGameOver && (
+              <button
+                onClick={() => {
+                  playPop();
+                  hapticTap();
+                  setIsPaused((prev) => !prev);
+                }}
+                className={`btn-duo ${isPaused ? 'btn-duo-green' : 'btn-duo-blue'}`}
+                aria-label={isPaused ? 'Spiel fortsetzen' : 'Spiel pausieren'}
+                aria-pressed={isPaused}
+              >
+                {isPaused ? <PlayIcon size={18} /> : <PauseIcon size={18} />} {isPaused ? 'Weiter' : 'Pause'}
+              </button>
+            )}
+            <button onClick={handleVerify} className="btn-duo btn-duo-green" disabled={isPaused}>
               <CheckIcon size={18} /> Prüfen
             </button>
             <button
@@ -293,7 +482,49 @@ const MainAppContent: React.FC = () => {
             </button>
           </div>
 
-          <SudokuBoard victoryWave={victoryWave} />
+          {isPaused ? (
+            /* Pausiert: Board ersetzt (Anti-Peek), Timer & Eingaben gestoppt */
+            <button
+              onClick={() => {
+                playPop();
+                hapticTap();
+                setIsPaused(false);
+              }}
+              aria-label="Spiel fortsetzen"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px',
+                width: 'min(90vw, 480px)',
+                minHeight: '320px',
+                margin: '20px auto',
+                padding: '32px',
+                borderRadius: '24px',
+                border: '2px solid var(--duo-gray)',
+                backgroundColor: 'var(--duo-bg-card)',
+                boxShadow: '0 8px 0 var(--duo-gray-shadow)',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              <span style={{ display: 'inline-flex', color: 'var(--duo-blue)' }}>
+                <PauseIcon size={48} />
+              </span>
+              <span style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--duo-text-dark)' }}>
+                Pausiert
+              </span>
+              <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--duo-text-light)' }}>
+                Tippe auf „Weiter", um weiterzuspielen
+              </span>
+              <span className="btn-duo btn-duo-green" style={{ pointerEvents: 'none' }}>
+                <PlayIcon size={18} /> Weiter
+              </span>
+            </button>
+          ) : (
+            <SudokuBoard victoryWave={victoryWave} onHintExplanation={setMascotMessage} />
+          )}
         </div>
       )}
 
@@ -354,12 +585,35 @@ const MainAppContent: React.FC = () => {
                 <PartyIcon size={44} />
               </div>
               <h2 style={{ fontSize: '1.8rem', color: 'var(--duo-green)', margin: '0 0 12px 0', fontWeight: 900 }}>
-                Level geschafft!
+                {playingDifficulty === 'extreme' ? 'BOSS BESIEGT! 👑' : 'Level geschafft!'}
               </h2>
 
               <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--duo-text-light)', margin: '0 0 4px 0' }}>
                 ⏱️ Gelöst in {Math.floor(timerSeconds / 60).toString().padStart(2, '0')}:{(timerSeconds % 60).toString().padStart(2, '0')}
               </div>
+
+              {state?.dailyKey && (
+                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--duo-green)', margin: '0 0 4px 0' }}>
+                  📅 Tägliche Challenge abgeschlossen!
+                </div>
+              )}
+
+              {state?.gameMode === 'challenge' && state.challengeSeed != null && (
+                <div
+                  style={{
+                    fontSize: '0.9rem',
+                    fontWeight: 800,
+                    color: 'var(--duo-purple)',
+                    backgroundColor: 'var(--duo-tint-purple)',
+                    padding: '8px',
+                    borderRadius: '10px',
+                    margin: '0 0 4px 0',
+                  }}
+                >
+                  ⚔️ Duell-Code: {encodeChallenge(state.challengeSeed)} – vergleiche deine Zeit{' '}
+                  {Math.floor(timerSeconds / 60).toString().padStart(2, '0')}:{(timerSeconds % 60).toString().padStart(2, '0')} mit deinem Freund!
+                </div>
+              )}
 
               <div
                 style={{
@@ -384,7 +638,7 @@ const MainAppContent: React.FC = () => {
                       fontSize: '0.9rem',
                       fontWeight: 800,
                       color: 'var(--duo-green)',
-                      backgroundColor: '#eefbdf',
+                      backgroundColor: 'var(--duo-tint-green)',
                       padding: '8px',
                       borderRadius: '10px',
                     }}
@@ -398,7 +652,7 @@ const MainAppContent: React.FC = () => {
                       fontSize: '0.9rem',
                       fontWeight: 800,
                       color: 'var(--duo-purple)',
-                      backgroundColor: '#f3eaff',
+                      backgroundColor: 'var(--duo-tint-purple)',
                       padding: '8px',
                       borderRadius: '10px',
                     }}
@@ -412,7 +666,7 @@ const MainAppContent: React.FC = () => {
                       fontSize: '0.9rem',
                       fontWeight: 800,
                       color: 'var(--duo-blue)',
-                      backgroundColor: '#e5f6ff',
+                      backgroundColor: 'var(--duo-tint-blue)',
                       padding: '8px',
                       borderRadius: '10px',
                     }}
@@ -462,7 +716,7 @@ const MainAppContent: React.FC = () => {
           } else if (tab === 'extreme') {
             setIsShopOpen(false);
             if (view !== 'game' || playingDifficulty !== 'extreme') {
-              handleStartLevel('extreme', 99);
+              requestExtremeStart();
             }
           } else if (tab === 'shop') {
             setIsShopOpen(true);
@@ -483,6 +737,102 @@ const MainAppContent: React.FC = () => {
       </AnimatePresence>
       <AnimatePresence>
         {showLeaderboardModal && <LeaderboardModal onClose={() => setShowLeaderboardModal(false)} />}
+      </AnimatePresence>
+      {/* UI-Teil 1: Einstellungen (Dark Mode, Zen, Sync-Codes) + Daily-Kalender */}
+      <AnimatePresence>
+        {showSettingsModal && <SettingsModal onClose={() => setShowSettingsModal(false)} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showDailyModal && (
+          <DailyChallengeModal
+            onClose={() => setShowDailyModal(false)}
+            onPlayDaily={() => {
+              setShowDailyModal(false);
+              handleStartDaily();
+            }}
+          />
+        )}
+      </AnimatePresence>
+      {/* UI-Teil 2: Duell (Challenge-Codes) + Technik-Schule */}
+      <AnimatePresence>
+        {showChallengeModal && (
+          <ChallengeModal
+            onClose={() => setShowChallengeModal(false)}
+            onStartChallenge={startChallenge}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showSchoolModal && <TechniqueSchoolModal onClose={() => setShowSchoolModal(false)} />}
+      </AnimatePresence>
+
+      {/* Boss-Intro vor jedem Extrem-Start */}
+      <AnimatePresence>
+        {showBossIntro && (
+          <motion.div
+            className="duo-backdrop"
+            style={{ zIndex: 2100, backgroundColor: 'rgba(20, 10, 10, 0.82)' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Boss-Kampf Extrem-Sudoku"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+              style={{
+                backgroundColor: 'var(--duo-bg-card)',
+                borderRadius: '24px',
+                border: '3px solid var(--duo-red)',
+                boxShadow: '0 8px 0 var(--duo-red-shadow)',
+                padding: '32px 28px',
+                maxWidth: '400px',
+                width: 'calc(100vw - 48px)',
+                textAlign: 'center',
+              }}
+            >
+              <motion.div
+                animate={{ scale: [1, 1.18, 1] }}
+                transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+                style={{ fontSize: '3.6rem', lineHeight: 1, marginBottom: '10px' }}
+                aria-hidden
+              >
+                💀
+              </motion.div>
+              <h2 style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--duo-red)', margin: '0 0 8px 0' }}>
+                BOSS-KAMPF: Das Extrem-Sudoku
+              </h2>
+              <p style={{ fontWeight: 700, color: 'var(--duo-text-light)', margin: '0 0 20px 0', fontSize: '0.95rem' }}>
+                Nur 17 Vorgaben. Keine Gnade. +2500 XP
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button
+                  className="btn-duo btn-duo-red"
+                  onClick={() => handleStartLevel('extreme', 99)}
+                  style={{ width: '100%', fontSize: '1.1rem' }}
+                >
+                  <SkullIcon size={18} /> Kampf aufnehmen
+                </button>
+                <button
+                  className="btn-duo btn-duo-gray"
+                  onClick={() => {
+                    playPop();
+                    hapticTap();
+                    setShowBossIntro(false);
+                  }}
+                  style={{ width: '100%' }}
+                >
+                  Doch nicht
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );

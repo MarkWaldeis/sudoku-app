@@ -50,7 +50,10 @@ const SparkBurst: React.FC<{ row: number; col: number }> = ({ row, col }) => {
   );
 };
 
-export const SudokuBoard: React.FC<{ victoryWave?: boolean }> = ({ victoryWave = false }) => {
+export const SudokuBoard: React.FC<{ victoryWave?: boolean; onHintExplanation?: (text: string) => void }> = ({
+  victoryWave = false,
+  onHintExplanation,
+}) => {
   const { state, solution, makeMove, togglePencilMark, useHint: requestHint, profile } = useGame();
   const [selectedCell, setSelectedCell] = useState<{ r: number; c: number } | null>(null);
   const [isNotesMode, setIsNotesMode] = useState(false);
@@ -123,6 +126,20 @@ export const SudokuBoard: React.FC<{ victoryWave?: boolean }> = ({ victoryWave =
     }
   }, [selectedCell, isNotesMode, state, makeMove, victoryWave]);
 
+  // Tipp anfordern; eine vorhandene Technik-Erklärung geht an das Maskottchen (via App)
+  const handleHint = useCallback(() => {
+    if (victoryWave) return;
+    const result = requestHint(selectedCell);
+    if (result.success) {
+      playSuccessChime();
+      hapticSuccess();
+      if (result.explanation) onHintExplanation?.(result.explanation);
+    } else {
+      playErrorBuzz();
+      hapticError();
+    }
+  }, [victoryWave, requestHint, selectedCell, onHintExplanation]);
+
   // Keyboard support: digits, erase, notes toggle, hint, arrows, escape
   useEffect(() => {
     if (!state) return;
@@ -135,10 +152,7 @@ export const SudokuBoard: React.FC<{ victoryWave?: boolean }> = ({ victoryWave =
         playPop();
         setIsNotesMode((prev) => !prev);
       } else if (e.key === 'h' || e.key === 'H') {
-        if (!victoryWave && requestHint(selectedCell)) {
-          playSuccessChime();
-          hapticSuccess();
-        }
+        handleHint();
       } else if (e.key === 'Escape') {
         setSelectedCell(null);
       } else if (e.key.startsWith('Arrow')) {
@@ -161,7 +175,7 @@ export const SudokuBoard: React.FC<{ victoryWave?: boolean }> = ({ victoryWave =
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state, selectedCell, isNotesMode, makeMove, handleNumberInput, handleErase, requestHint, victoryWave]);
+  }, [state, selectedCell, isNotesMode, makeMove, handleNumberInput, handleErase, handleHint]);
 
   const selectedValue =
     state && selectedCell && state.board[selectedCell.r][selectedCell.c] !== null
@@ -248,7 +262,7 @@ export const SudokuBoard: React.FC<{ victoryWave?: boolean }> = ({ victoryWave =
         transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
         style={{
           padding: '16px',
-          backgroundColor: 'white',
+          backgroundColor: 'var(--duo-bg-card)',
           borderRadius: '24px',
           boxShadow: '0 8px 0 var(--duo-gray-shadow)',
           border: '2px solid var(--duo-gray)',
@@ -280,7 +294,9 @@ export const SudokuBoard: React.FC<{ victoryWave?: boolean }> = ({ victoryWave =
               const isInNumberSight =
                 !isSelected && !isSameNumber && !!numberSight?.has(`${rowIndex}-${colIndex}`);
               const isInitial = state.initialBoard[rowIndex][colIndex] !== null;
+              // Fehler-Markierung nur, wenn in den Einstellungen aktiviert
               const isWrong =
+                profile.errorHighlight &&
                 !isInitial && val !== null && !!solution && val !== solution[rowIndex][colIndex];
               const isHinted = state.hintedCell?.r === rowIndex && state.hintedCell?.c === colIndex;
 
@@ -290,18 +306,18 @@ export const SudokuBoard: React.FC<{ victoryWave?: boolean }> = ({ victoryWave =
               const waveDelay = (8 - rowIndex + colIndex) * 45;
 
               const bg = isHinted
-                ? '#fff4cc'
+                ? 'var(--duo-cell-hint)'
                 : isSelected
                   ? 'var(--duo-blue)'
                   : isWrong
-                    ? '#ffe5e5'
+                    ? 'var(--duo-cell-wrong)'
                     : isSameNumber
-                      ? '#b3e3fd'
+                      ? 'var(--duo-cell-same)'
                       : isInNumberSight
-                        ? '#eaf7ff'
+                        ? 'var(--duo-cell-sight)'
                         : isRelated
-                          ? '#e5f6ff'
-                          : 'white';
+                          ? 'var(--duo-cell-related)'
+                          : 'var(--duo-bg-card)';
 
               const fg = isSelected
                 ? 'white'
@@ -438,16 +454,7 @@ export const SudokuBoard: React.FC<{ victoryWave?: boolean }> = ({ victoryWave =
           <BackspaceIcon size={20} />
         </button>
         <button
-          onClick={() => {
-            if (victoryWave) return;
-            if (requestHint(selectedCell)) {
-              playSuccessChime();
-              hapticSuccess();
-            } else {
-              playErrorBuzz();
-              hapticError();
-            }
-          }}
+          onClick={handleHint}
           className="btn-duo btn-duo-yellow"
           style={{ height: '48px', padding: '0 14px', fontSize: '0.95rem', fontWeight: 800 }}
         >

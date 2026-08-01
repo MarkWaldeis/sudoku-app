@@ -1,6 +1,6 @@
 # Project State: Gamified Duolingo Sudoku PWA
 
-**Letztes Update:** 26. Juli 2026  
+**Letztes Update:** 1. August 2026  
 **Technologie-Stack:** Vite, React, TypeScript, Framer Motion, Web Audio API, localforage (IndexedDB), GitHub Pages.
 
 ---
@@ -11,31 +11,50 @@ Eine produktionsreife, spielerische Sudoku-PWA im ikonischen **Duolingo 3D-Look*
 - Web Audio API Sound-Synthesizer (keine MP3s notwendig).
 - Leben-System (3 Herzen), Streak-Tageszähler, XP & Combos.
 - Responsive mobile Bottom-Navigation, Stats-Modal & Leaderboard.
+- Dark Mode, Daily Challenge, Duell-Codes, Technik-Schule und Pause/Zen.
 
 ---
 
 ## 🏗️ Architektur & Daten-Flow
-- `src/store/GameContext.tsx`: Haupt-State-Provider für Board, PencilMarks, Anti-Cheat Obfuscation, Leben & Profil.
-- `src/store/storage.ts`: Persistenz via `localforage` für flüssige Offline-Nutzung.
-- `src/logic/sudokuGenerator.ts`: Backtracking-Generator für eindeutig lösbare Sudokus.
+- `src/store/GameContext.tsx`: Haupt-State-Provider für Board, PencilMarks, Anti-Cheat Obfuscation, Leben & Profil; Settings, Sync-Codes, seeded Games.
+- `src/store/storage.ts`: Persistenz via `localforage` (Profil inkl. Theme/Zen/History/Daily-Completion).
+- `src/logic/sudokuGenerator.ts`: Backtracking-Generator + deterministische Seeds (`generateSudokuSeeded`).
+- `src/logic/dailyChallenge.ts`: Tages-Key, Seed, Difficulty-Rotation, Challenge-Code Encode/Decode.
+- `src/logic/sudokuTechniques.ts`: Naked/Hidden Single, Naked Pair → erklärende Hints.
 - `src/logic/campaignLevels.ts`: 20 vordefinierte Level-Konfigurationen.
 - `src/services/leaderboardService.ts`: Ranking & Highscore Management.
 
 ---
 
 ## 📦 Kürzlich umgesetzt
-- **Duolingo Shop System (`ShopModal.tsx`)**: Kaufen von Herzen-Auffüllungen, Tipp-Paketen, Streak-Schutz und freischaltbaren Maskottchen-Skins.
-- **Edelsteine-Währung (💎)**: Belohnungssystem für gelöste Züge, geschaffte Level und Schnelligkeits-Boni.
-- **💡 Tipp-System**: Interaktiver Tipp-Button in den Sudoku-Bedienelementen mit gelber Leucht-Animation (`hintedCell`) und automatischer Feldfindung.
-- **⏱️ Zeit-Bonus (Speed Bonus)**: Live-Timer in der Kopfzeile und Extra-Edelsteine & XP bei schnellem Lösen.
-- **🎭 Maskottchen-Skins**: 4 freischaltbare Skins (SudoBuddy 👾, Schlauer Fuchs 🦊, König Sudo 👑, Zahlen-Ninja 🥷) mit dynamischer Vorschau im Shop und Anbindung an `MascotAssistant.tsx`.
-- **💀 Extrem-Level Modus**: Neuer separater Reiter & Button für das extrem schwere Level mit nur 17 Vorgaben (inkl. berühmtem AI Escargot Preset) & +2500 XP / +250 Gems Belohnungen!
-- **Git Push & Host:** Vollständiges Deployment auf GitHub `main`.
+
+### Phase 2 — UI Teil 1
+- **Dark Mode**: `profile.theme` → `<html data-theme="dark|light">`, CSS-Variablen in `duolingo.css`.
+- **Settings-Modal** (`SettingsModal.tsx`): Theme, Zen-Modus, Fehler-Highlight, Auto-Pencil-Cleanup, Sync-Code Export/Import.
+- **Daily Challenge** (`DailyChallengeModal.tsx` + `dailyChallenge.ts`): Kalender-UI, deterministisches Puzzle pro Tag, `dailyCompleted` im Profil.
+- **Stats-Erweiterung** (`StatsModal.tsx`): Spielhistorie, Fehlerquote, mehr KPIs.
+
+### Phase 3 — UI Teil 2
+- **Pause / Zen**: Pause-Overlay (Anti-Peek, Timer gestoppt); Zen blendet den Timer aus.
+- **Fehler-Highlight**: Optionales Rot-Markieren falscher Einträge (`errorHighlight` + Board-Zellen).
+- **Technik-Tipps**: `findTechniqueHint` im Hint-Flow mit Maskottchen-Erklärung.
+- **Challenge-Codes / Duell** (`ChallengeModal.tsx`): Code erzeugen/teilen, beitreten, `#challenge=CODE` Deep-Link.
+- **Boss-Intro**: Extrem startet über dramatisches Intro-Modal vor dem 17-Clue-Boss.
+- **Technik-Schule** (`TechniqueSchoolModal.tsx`): Lerninhalte zu Sudoku-Techniken.
+- **Adaptive Empfehlung**: Maskottchen-Tipps aus den letzten ~5 Spielen (Fehler/Zeit/Schwierigkeit).
+
+### Bereits etabliert
+- Shop, Gems, Hints, Speed-Bonus, Maskottchen-Skins, Extrem-Level, Victory-Wave, PWA Service Worker.
+
+---
+
+## ✅ Qualität (Stand 01.08.2026)
+- `npm run build` (`tsc -b && vite build`): **PASS**
+- `npm run lint` (`oxlint`): **0 Errors** (1 Fast-Refresh-Hinweis in `GameContext`)
 
 ---
 
 ## 🎯 Nächste geplante Meilensteine
-1. Cloud-Synchronisation (z.B. via Supabase oder Sync-Code) für spielstandübergreifendes Spielen auf PC & Handy.
-2. Tägliche Sudoku-Herausforderungen ("Daily Quests").
-
-
+1. Echte Cloud-Sync (Supabase o.ä.) zusätzlich zum lokalen Sync-Code.
+2. Mehr Techniken in der Schule (Pointing Pairs, X-Wing, …).
+3. Optional: Freunde-Leaderboard für Daily/Duell-Zeiten.
